@@ -1,0 +1,82 @@
+
+kind: pipeline
+name: java8
+
+platform:
+  arch: amd64
+
+steps:
+- name: prepare-dependencies
+  image: omz-ci-tools
+  pull: never
+  commands:
+  - artifact-dl-java mvncentral/org.json:json:20211205
+  - artifact-dl-java omz/org.omegazero.common:omz-common:latest
+  - artifact-dl-java omz/org.omegazero.net:omz-netlib:latest
+
+- name: prepare-source
+  image: omz-ci-tools
+  pull: never
+  commands:
+  - mkdir build
+  - setversion http-core/main/java/org/omegazero/http/HTTPLib.java
+
+- name: build-core
+  image: openjdk:8
+  commands:
+  - mkdir -p build/core/bin
+  - find http-core/main/java -iname "*.java" > build/core/srcfiles
+  - javac -version -verbose -d build/core/bin @build/core/srcfiles
+  - jar cf build-core.jar -C build/core/bin .
+  depends_on:
+  - prepare-dependencies
+  - prepare-source
+
+- name: build-net
+  image: openjdk:8
+  commands:
+  - mkdir -p build/net/bin
+  - find http-net/main/java -iname "*.java" > build/net/srcfiles
+  - javac -version -verbose -d build/net/bin @build/net/srcfiles -cp build-core.jar:omz-netlib-latest.jar
+  - jar cf build-net.jar -C build/net/bin .
+  depends_on:
+  - prepare-dependencies
+  - prepare-source
+  - build-core
+
+- name: build-http1
+  image: openjdk:8
+  commands:
+  - mkdir -p build/http1/bin
+  - find http1/main/java -iname "*.java" > build/http1/srcfiles
+  - javac -version -verbose -d build/http1/bin @build/http1/srcfiles -cp build-core.jar:omz-common-latest.jar
+  - jar cf build-http1.jar -C build/http1/bin .
+  depends_on:
+  - prepare-dependencies
+  - prepare-source
+  - build-core
+
+- name: build-all
+  image: openjdk:8
+  commands:
+  - mkdir -p build/all/bin
+  - cp -r build/core/bin/* build/net/bin/* build/http1/bin/* build/all/bin
+  - jar cf build-all.jar -C build/all/bin .
+  depends_on:
+  - build-core
+  - build-net
+  - build-http1
+
+- name: publish
+  image: omz-ci-tools
+  pull: never
+  commands:
+  - artifact-push-java build-all.jar omz/org.omegazero.http:omz-http
+  - artifact-push-java build-core.jar omz/org.omegazero.http:omz-http-core
+  - artifact-push-java build-net.jar omz/org.omegazero.http:omz-http-net
+  - artifact-push-java build-http1.jar omz/org.omegazero.http:omz-http-http1
+  depends_on:
+  - build-all
+  environment:
+    OMZ_ARTIFACT_PUSH_TOKEN:
+      from_secret: artifact_push_token

@@ -1,0 +1,31 @@
+{
+	"generator": "javadoc",
+	"targetName": "omz-http-lib",
+	"generatorOptions": {
+		"src": [
+			"http-core/main/java",
+			"http-net/main/java",
+			"http1/main/java"
+		],
+		"packages": ["org"],
+		"windowtitle": "omegazero HTTP Library",
+		"doctitle": "omegazero HTTP Library documentation",
+		"header": "omz http lib",
+		"groups": {
+			"Lib: core": "org.omegazero.http.common:org.omegazero.http.common.*:org.omegazero.http.gen:org.omegazero.http.util",
+			"Lib: net": "org.omegazero.http.netutil:org.omegazero.http.netutil.*",
+			"Lib: http1": "org.omegazero.http.h1:org.omegazero.http.h1.*"
+		},
+		"links": [
+			"https://docs.oracle.com/javase/8/docs/api/",
+			"https://stleary.github.io/JSON-java/",
+			"https://docs.omegazero.org/javadoc/omz-java-lib/",
+			"https://docs.omegazero.org/javadoc/omz-net-lib/"
+		],
+		"dependencies": [
+			"mvncentral/org.json:json:20211205",
+			"omz/org.omegazero.common:omz-common:latest",
+			"omz/org.omegazero.net:omz-netlib:latest"
+		]
+	}
+}
