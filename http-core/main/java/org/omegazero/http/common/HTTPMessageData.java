@@ -25,7 +25,7 @@ public class HTTPMessageData implements java.io.Serializable {
 	 * Creates a new {@link HTTPMessageData} instance.
 	 * 
 	 * @param httpMessage The HTTP message
-	 * @param data The full or partial body of the <b>httpMessage</b>
+	 * @param data The full or partial body of the <b>httpMessage</b>. May be {@code null}
 	 */
 	public HTTPMessageData(HTTPMessage httpMessage, byte[] data) {
 		this(httpMessage, false, data);
@@ -36,7 +36,7 @@ public class HTTPMessageData implements java.io.Serializable {
 	 * 
 	 * @param httpMessage The HTTP message
 	 * @param lastPacket Whether this {@code HTTPMessageData} represents the last body data part
-	 * @param data The full or partial body of the <b>httpMessage</b>
+	 * @param data The full or partial body of the <b>httpMessage</b>. May be {@code null}
 	 */
 	public HTTPMessageData(HTTPMessage httpMessage, boolean lastPacket, byte[] data) {
 		this.httpMessage = httpMessage;
@@ -69,10 +69,17 @@ public class HTTPMessageData implements java.io.Serializable {
 	 * If the {@link HTTPMessage} body of this object is not {@linkplain HTTPMessage#isChunkedTransfer() chunked}, the given byte array must have the same length as before.
 	 * 
 	 * @param data The new data
-	 * @throws UnsupportedOperationException If the {@link HTTPMessage} body of this object is not {@linkplain HTTPMessage#isChunkedTransfer() chunked} and the given byte
-	 * array does not have the same length as the original byte array
+	 * @throws IllegalStateException If this {@code HTTPMessageData} was not initialized with data ({@code null} passed in the constructor) and the given <b>data</b> is not
+	 * {@code null}
+	 * @throws UnsupportedOperationException If the {@link HTTPMessage} body of this object is not {@linkplain HTTPMessage#isChunkedTransfer() chunked} and the given byte array
+	 * does not have the same length as the original byte array
 	 */
 	public void setData(byte[] data) {
+		if(this.data == null){
+			if(data != null)
+				throw new IllegalStateException("Not initialized with data");
+			return;
+		}
 		if(!this.httpMessage.isChunkedTransfer() && this.data.length != data.length)
 			throw new UnsupportedOperationException("HTTP message body chunk size must be the same size if transfer is not chunked");
 		this.data = data;
