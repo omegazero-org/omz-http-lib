@@ -65,13 +65,21 @@ public final class HTTPStatus {
 	public static final int STATUS_NOT_EXTENDED = 510;
 	public static final int STATUS_NETWORK_AUTHENTICATION_REQUIRED = 511;
 
-	/**
-	 * Contains user-friendly string representations for each status code defined in this class. The index of a string in this array is the status code.
-	 */
-	public static final String[] STATUS_NAMES = new String[600];
+	private static final String[] STATUS_NAMES = new String[500];
 
 
 	private HTTPStatus() {
+	}
+
+
+	/**
+	 * Returns a user-friendly string representation for each status code defined in this class.
+	 * 
+	 * @param status The status code to get a string for
+	 * @return The string
+	 */
+	public static String getStatusName(int status) {
+		return STATUS_NAMES[status - 100];
 	}
 
 
@@ -95,7 +103,7 @@ public final class HTTPStatus {
 					}
 				}
 				try{
-					STATUS_NAMES[field.getInt(null)] = sb.toString();
+					STATUS_NAMES[field.getInt(null) - 100] = sb.toString();
 				}catch(IllegalAccessException e){
 					throw new RuntimeException(e);
 				}
