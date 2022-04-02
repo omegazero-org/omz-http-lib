@@ -56,16 +56,30 @@ steps:
   - prepare-source
   - build-core
 
+- name: build-http2
+  image: openjdk:8
+  commands:
+  - mkdir -p build/http2/bin
+  - find http2/main/java -iname "*.java" > build/http2/srcfiles
+  - javac -version -verbose -d build/http2/bin @build/http2/srcfiles -cp build-core.jar:omz-common-latest.jar
+  - cp -r http2/main/resources/* build/http2/bin/
+  - jar cf build-http2.jar -C build/http2/bin .
+  depends_on:
+  - prepare-dependencies
+  - prepare-source
+  - build-core
+
 - name: build-all
   image: openjdk:8
   commands:
   - mkdir -p build/all/bin
-  - cp -r build/core/bin/* build/net/bin/* build/http1/bin/* build/all/bin
+  - cp -r build/core/bin/* build/net/bin/* build/http1/bin/* build/http2/bin/* build/all/bin
   - jar cf build-all.jar -C build/all/bin .
   depends_on:
   - build-core
   - build-net
   - build-http1
+  - build-http2
 
 - name: publish
   image: omz-ci-tools
@@ -75,6 +89,7 @@ steps:
   - artifact-push-java build-core.jar omz/org.omegazero.http:omz-http-core
   - artifact-push-java build-net.jar omz/org.omegazero.http:omz-http-net
   - artifact-push-java build-http1.jar omz/org.omegazero.http:omz-http-http1
+  - artifact-push-java build-http2.jar omz/org.omegazero.http:omz-http-http2
   depends_on:
   - build-all
   environment:

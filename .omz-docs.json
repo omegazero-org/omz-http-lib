@@ -5,7 +5,8 @@
 		"src": [
 			"http-core/main/java",
 			"http-net/main/java",
-			"http1/main/java"
+			"http1/main/java",
+			"http2/main/java"
 		],
 		"packages": ["org"],
 		"windowtitle": "omegazero HTTP Library",
@@ -14,7 +15,8 @@
 		"groups": {
 			"Lib: core": "org.omegazero.http.common:org.omegazero.http.common.*:org.omegazero.http.gen:org.omegazero.http.util",
 			"Lib: net": "org.omegazero.http.netutil:org.omegazero.http.netutil.*",
-			"Lib: http1": "org.omegazero.http.h1:org.omegazero.http.h1.*"
+			"Lib: http1": "org.omegazero.http.h1:org.omegazero.http.h1.*",
+			"Lib: http2": "org.omegazero.http.h2:org.omegazero.http.h2.*"
 		},
 		"links": [
 			"https://docs.oracle.com/javase/8/docs/api/",
