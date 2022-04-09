@@ -197,7 +197,10 @@ public abstract class HTTP2Endpoint {
 				if(logger.debug())
 					logger.debug(this.connection.getRemoteName(), ": Error in stream ", (stream != null ? stream.getStreamId() : "(none)"), ": ",
 							HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
-				if(h2e.isStreamError() && (stream instanceof MessageStream)){
+				if(!this.connection.isWritable()){
+					logger.warn("Attempted to notify peer of HTTP/2 error but connection is not writable; destroying socket [DoS mitigation]");
+					this.sendConnectionError(HTTP2Constants.STATUS_ENHANCE_YOUR_CALM);
+				}else if(h2e.isStreamError() && (stream instanceof MessageStream)){
 					try{
 						((MessageStream) stream).rst(h2e.getStatus());
 					}catch(IOException e2){
