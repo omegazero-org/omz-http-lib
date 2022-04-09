@@ -58,7 +58,7 @@ public final class HTTP2Util {
 	 * @see <i>RFC 7540, section 3.5</i>
 	 */
 	public static boolean isValidClientPreface(byte[] data, int offset) {
-		if(offset < 0 || offset + CLIENT_PREFACE.length >= data.length)
+		if(offset < 0 || offset + CLIENT_PREFACE.length > data.length)
 			return false;
 		for(int i = 0; i < CLIENT_PREFACE.length; i++){
 			if(data[offset + i] != CLIENT_PREFACE[i])
