@@ -317,7 +317,7 @@ public class MessageStream extends HTTP2Stream {
 			else if(this.state == STATE_RESERVED) // incoming response after push promise (s->c)
 				this.state = STATE_HALF_CLOSED_LOCAL;
 			else if(this.isClosed())
-				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED);
+				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, this.isCloseOutgoing());
 			else if(this.state != STATE_HALF_CLOSED_LOCAL && this.state != STATE_OPEN) // incoming response (s->c) or incoming request trailers (c->s)
 				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true);
 			if(data.length < 1)
