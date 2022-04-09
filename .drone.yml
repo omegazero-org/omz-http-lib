@@ -20,11 +20,13 @@ steps:
   commands:
   - mkdir build
   - setversion http-core/main/java/org/omegazero/http/HTTPLib.java
+  - curl -G "https://omegazero.org/site/software/r/license_bin_full.php" --data-urlencode "srcurl=$DRONE_REPO_LINK/src/commit/$DRONE_COMMIT" > LICENSE_BIN
 
 - name: build-core
   image: openjdk:8
   commands:
-  - mkdir -p build/core/bin
+  - mkdir -p build/core/bin/META-INF
+  - cp LICENSE_BIN build/core/bin/META-INF/LICENSE
   - find http-core/main/java -iname "*.java" > build/core/srcfiles
   - javac -version -verbose -d build/core/bin @build/core/srcfiles
   - jar cf build-core.jar -C build/core/bin .
@@ -35,7 +37,8 @@ steps:
 - name: build-net
   image: openjdk:8
   commands:
-  - mkdir -p build/net/bin
+  - mkdir -p build/net/bin/META-INF
+  - cp LICENSE_BIN build/net/bin/META-INF/LICENSE
   - find http-net/main/java -iname "*.java" > build/net/srcfiles
   - javac -version -verbose -d build/net/bin @build/net/srcfiles -cp build-core.jar:omz-netlib-latest.jar
   - jar cf build-net.jar -C build/net/bin .
@@ -47,7 +50,8 @@ steps:
 - name: build-http1
   image: openjdk:8
   commands:
-  - mkdir -p build/http1/bin
+  - mkdir -p build/http1/bin/META-INF
+  - cp LICENSE_BIN build/http1/bin/META-INF/LICENSE
   - find http1/main/java -iname "*.java" > build/http1/srcfiles
   - javac -version -verbose -d build/http1/bin @build/http1/srcfiles -cp build-core.jar:omz-common-latest.jar
   - jar cf build-http1.jar -C build/http1/bin .
@@ -59,7 +63,8 @@ steps:
 - name: build-http2
   image: openjdk:8
   commands:
-  - mkdir -p build/http2/bin
+  - mkdir -p build/http2/bin/META-INF
+  - cp LICENSE_BIN build/http2/bin/META-INF/LICENSE
   - find http2/main/java -iname "*.java" > build/http2/srcfiles
   - javac -version -verbose -d build/http2/bin @build/http2/srcfiles -cp build-core.jar:omz-common-latest.jar
   - cp -r http2/main/resources/* build/http2/bin/
@@ -72,8 +77,9 @@ steps:
 - name: build-all
   image: openjdk:8
   commands:
-  - mkdir -p build/all/bin
+  - mkdir -p build/all/bin/META-INF
   - cp -r build/core/bin/* build/net/bin/* build/http1/bin/* build/http2/bin/* build/all/bin
+  - cp LICENSE_BIN build/all/bin/META-INF/LICENSE
   - jar cf build-all.jar -C build/all/bin .
   depends_on:
   - build-core
