@@ -54,7 +54,7 @@ public class SocketConnectionWritable implements WritableSocket {
 
 	@Override
 	public void close() {
-		this.connection.close();
+		this.connection.destroy();
 	}
 
 
