@@ -29,7 +29,7 @@ public class SocketConnectionWritable implements WritableSocket {
 
 	@Override
 	public void write(byte[] data, int offset, int length) {
-		this.connection.write(data, offset, length);
+		this.connection.writeQueue(data, offset, length);
 	}
 
 	@Override
