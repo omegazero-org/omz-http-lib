@@ -259,6 +259,7 @@ public class MessageStream extends HTTP2Stream {
 	}
 
 	private boolean writeDataFrame(boolean eos, byte[] data) throws IOException {
+		assert Thread.holdsLock(this);
 		synchronized(this.windowSizeLock){
 			int recWindow = this.getReceiverFlowControlWindowSize();
 			if(super.connection.isWritable() && this.dataBacklog.size() == 0 && recWindow > 0){
@@ -502,7 +503,7 @@ public class MessageStream extends HTTP2Stream {
 	}
 
 	@Override
-	public void windowUpdate() {
+	public synchronized void windowUpdate() {
 		if(this.isClosed()){
 			if(!this.dataBacklog.isEmpty()){
 				synchronized(this.windowSizeLock){
