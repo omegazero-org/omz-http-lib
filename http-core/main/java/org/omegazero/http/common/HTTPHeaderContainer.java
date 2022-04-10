@@ -58,7 +58,13 @@ public class HTTPHeaderContainer implements java.io.Serializable {
 	 * @param headers The {@code HTTPHeaderContainer} to copy from
 	 */
 	public HTTPHeaderContainer(HTTPHeaderContainer headers) {
-		this.headerFields = new HashMap<>(headers.headerFields);
+		this.headerFields = new HashMap<>(headers.headerFields.size());
+		for(Map.Entry<String, String[]> header : headers.headerFields.entrySet()){
+			String[] v = header.getValue();
+			String[] vcopy = new String[v.length];
+			System.arraycopy(v, 0, vcopy, 0, v.length);
+			this.headerFields.put(header.getKey(), vcopy);
+		}
 	}
 
 
