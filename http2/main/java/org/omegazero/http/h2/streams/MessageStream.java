@@ -399,7 +399,7 @@ public class MessageStream extends HTTP2Stream {
 			boolean es = (flags & FRAME_FLAG_ANY_END_STREAM) != 0;
 			this.receiveData(fdata, es);
 			if(this.receiveData && data.length > 0)
-				super.sendWindowSizeUpdate(data.length * 2);
+				super.sendWindowSizeUpdate(data.length);
 		}else if(type == FRAME_TYPE_RST_STREAM){
 			if(data.length != 4)
 				throw new HTTP2ConnectionError(STATUS_FRAME_SIZE_ERROR);
