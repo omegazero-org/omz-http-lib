@@ -25,7 +25,7 @@ public abstract class HTTPMessage extends HTTPHeaderContainer {
 	protected String httpVersion;
 	protected boolean chunkedTransfer;
 
-	protected HTTPMessage other;
+	protected transient HTTPMessage other;
 	protected transient Map<String, Object> attachments = null;
 
 	protected transient boolean locked = false;

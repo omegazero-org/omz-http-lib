@@ -25,7 +25,7 @@ public class HTTPRequest extends HTTPMessage {
 	protected String authority;
 	protected String path;
 
-	protected HTTPResponder httpResponder;
+	protected transient HTTPResponder httpResponder;
 
 	/**
 	 * Creates a new {@link HTTPRequest}.
