@@ -7,7 +7,6 @@
 package org.omegazero.http.common;
 
 import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Represents a generic HTTP request or response message, agnostic of the HTTP version used.
@@ -26,7 +25,6 @@ public abstract class HTTPMessage extends HTTPHeaderContainer {
 	protected boolean chunkedTransfer;
 
 	protected transient HTTPMessage other;
-	protected transient Map<String, Object> attachments = null;
 
 	protected transient boolean locked = false;
 
@@ -141,62 +139,6 @@ public abstract class HTTPMessage extends HTTPHeaderContainer {
 	public void setOther(HTTPMessage other) {
 		this.checkLocked();
 		this.other = other;
-	}
-
-	/**
-	 * Retrieves an attachment identified by the given <b>key</b> previously set by {@link #setAttachment(String, Object)}.
-	 * 
-	 * @param key The key of the attachment
-	 * @return The value of the attachment, or <code>null</code> if no attachment with the given <b>key</b> exists
-	 */
-	public Object getAttachment(String key) {
-		if(this.attachments == null)
-			return null;
-		else
-			return this.attachments.get(key);
-	}
-
-	/**
-	 * Sets an object that is bound to this <code>HTTPMessage</code> identified by the given <b>key</b>. This may be used by applications to store message-specific data in an
-	 * otherwise stateless environment.
-	 * <p>
-	 * Values stored here have no meaning in HTTP and are purely intended to store metadata used by the application.
-	 * 
-	 * @param key The string identifying the given <b>value</b> in this <code>HTTPMessage</code> object
-	 * @param value The value to be stored in this <code>HTTPMessage</code> object, or {@code null} to delete an existing attachment
-	 */
-	public void setAttachment(String key, Object value) {
-		if(this.attachments == null)
-			this.attachments = new HashMap<>();
-		if(value != null)
-			this.attachments.put(key, value);
-		else
-			this.attachments.remove(key);
-	}
-
-	/**
-	 * Determines whether an attachment identified by the given <b>key</b> exists.
-	 * 
-	 * @param key The key of the attachment
-	 * @return {@code true} if an attachment with the given <b>key</b> exists
-	 * @see #setAttachment(String, Object)
-	 */
-	public boolean hasAttachment(String key) {
-		return this.attachments != null && this.attachments.containsKey(key);
-	}
-
-	/**
-	 * Removes an attachment identified by the given <b>key</b> and returns it.
-	 * 
-	 * @param key The key of the attachment
-	 * @return The value of the attachment, or <code>null</code> if no attachment with the given <b>key</b> existed
-	 * @see #setAttachment(String, Object)
-	 */
-	public Object removeAttachment(String key) {
-		if(this.attachments == null)
-			return null;
-		else
-			return this.attachments.remove(key);
 	}
 
 

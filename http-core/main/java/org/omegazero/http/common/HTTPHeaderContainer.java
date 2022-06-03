@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.omegazero.common.util.SimpleAttachmentContainer;
+
 /**
  * Represents a collection of HTTP header key-value pairs. Each header (key) may have multiple values.
  * <p>
@@ -20,7 +22,7 @@ import java.util.Set;
  * 
  * @since 1.2.1
  */
-public class HTTPHeaderContainer implements java.io.Serializable {
+public class HTTPHeaderContainer extends SimpleAttachmentContainer implements java.io.Serializable {
 
 	private static final long serialVersionUID = 3L;
 
