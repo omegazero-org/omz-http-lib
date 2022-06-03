@@ -28,7 +28,7 @@ steps:
   - mkdir -p build/core/bin/META-INF
   - cp LICENSE_BIN build/core/bin/META-INF/LICENSE
   - find http-core/main/java -iname "*.java" > build/core/srcfiles
-  - javac -version -verbose -d build/core/bin @build/core/srcfiles
+  - javac -version -verbose -d build/core/bin @build/core/srcfiles -cp omz-common-latest.jar
   - jar cf build-core.jar -C build/core/bin .
   depends_on:
   - prepare-dependencies
