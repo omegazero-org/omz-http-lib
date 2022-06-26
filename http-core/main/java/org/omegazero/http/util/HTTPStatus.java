@@ -6,6 +6,8 @@
  */
 package org.omegazero.http.util;
 
+import org.omegazero.common.util.ReflectionUtil;
+
 /**
  * Contains standard or widely used HTTP status code numbers.
  * 
@@ -65,7 +67,7 @@ public final class HTTPStatus {
 	public static final int STATUS_NOT_EXTENDED = 510;
 	public static final int STATUS_NETWORK_AUTHENTICATION_REQUIRED = 511;
 
-	private static final String[] STATUS_NAMES = new String[500];
+	private static final String[] STATUS_NAMES;
 
 
 	private HTTPStatus() {
@@ -84,30 +86,10 @@ public final class HTTPStatus {
 
 
 	static{
-		java.lang.reflect.Field[] fields = HTTPStatus.class.getFields();
-		for(java.lang.reflect.Field field : fields){
-			String name = field.getName();
-			if(name.startsWith("STATUS_") && field.getType() == int.class){
-				StringBuilder sb = new StringBuilder(name.length() - 7 /* length of "STATUS_" == 7 */);
-				boolean u = true;
-				for(int i = 7; i < name.length(); i++){
-					char c = name.charAt(i);
-					if(c == '_'){
-						sb.append(' ');
-						u = true;
-					}else{
-						if(!u)
-							c += 32;
-						sb.append(c);
-						u = false;
-					}
-				}
-				try{
-					STATUS_NAMES[field.getInt(null) - 100] = sb.toString();
-				}catch(IllegalAccessException e){
-					throw new RuntimeException(e);
-				}
-			}
+		try{
+			STATUS_NAMES = ReflectionUtil.getIntegerFieldNames(HTTPStatus.class, "STATUS_", 100, 500, true);
+		}catch(IllegalAccessException e){
+			throw new RuntimeException(e);
 		}
 	}
 }
