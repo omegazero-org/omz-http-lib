@@ -12,7 +12,7 @@ steps:
   commands:
   - artifact-dl-java mvncentral/org.json:json:20211205
   - artifact-dl-java omz/org.omegazero.common:omz-common:latest
-  - artifact-dl-java omz/org.omegazero.net:omz-netlib:latest
+  - artifact-dl-java omz/org.omegazero.net:omz-netlib-common:latest
 
 - name: prepare-source
   image: omz-ci-tools
@@ -40,7 +40,7 @@ steps:
   - mkdir -p build/net/bin/META-INF
   - cp LICENSE_BIN build/net/bin/META-INF/LICENSE
   - find http-net/main/java -iname "*.java" > build/net/srcfiles
-  - javac -version -verbose -d build/net/bin @build/net/srcfiles -cp build-core.jar:omz-netlib-latest.jar
+  - javac -version -verbose -d build/net/bin @build/net/srcfiles -cp build-core.jar:omz-netlib-common-latest.jar
   - jar cf build-net.jar -C build/net/bin .
   depends_on:
   - prepare-dependencies
