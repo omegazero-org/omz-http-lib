@@ -12,10 +12,22 @@ package org.omegazero.http;
 public class HTTPLib {
 
 	/**
-	 * The version string of <i>omz-http-lib</i>.<br>
-	 * <br>
+	 * The version string of <i>omz-http-lib</i>.
+	 * <p>
 	 * This value is set by the CI build pipeline based on the event that triggered the build. Otherwise, this string is always <code>"$BUILDVERSION"</code>.
+	 * <p>
+	 * {@link #getVersion()} should be used to retrieve the value to prevent compile-time string inlining.
 	 */
 	public static final String VERSION = "$BUILDVERSION";
 
+
+	/**
+	 * Returns the {@linkplain #VERSION version string}.
+	 * 
+	 * @return The version string
+	 * @since 1.2.2
+	 */
+	public static String getVersion() {
+		return VERSION;
+	}
 }
