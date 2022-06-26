@@ -13,10 +13,25 @@
 		"doctitle": "omegazero HTTP Library documentation",
 		"header": "omz http lib",
 		"groups": {
-			"Lib: core": "org.omegazero.http.common:org.omegazero.http.common.*:org.omegazero.http.gen:org.omegazero.http.util",
-			"Lib: net": "org.omegazero.http.netutil:org.omegazero.http.netutil.*",
-			"Lib: http1": "org.omegazero.http.h1:org.omegazero.http.h1.*",
-			"Lib: http2": "org.omegazero.http.h2:org.omegazero.http.h2.*"
+			"Lib: core": [
+				"org.omegazero.http",
+				"org.omegazero.http.common",
+				"org.omegazero.http.common.*",
+				"org.omegazero.http.gen",
+				"org.omegazero.http.util"
+			],
+			"Lib: net": [
+				"org.omegazero.http.netutil",
+				"org.omegazero.http.netutil.*"
+			],
+			"Lib: http1": [
+				"org.omegazero.http.h1",
+				"org.omegazero.http.h1.*"
+			],
+			"Lib: http2": [
+				"org.omegazero.http.h2",
+				"org.omegazero.http.h2.*"
+			]
 		},
 		"links": [
 			"https://docs.oracle.com/javase/8/docs/api/",
