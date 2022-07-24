@@ -44,6 +44,7 @@ public class MessageBodyDechunker {
 	private long receivedData = 0;
 	private boolean ended = false;
 	private int lastChunkRemaining = 0;
+	private int lastChunkSize = 0;
 
 	/**
 	 * Creates a new {@link MessageBodyDechunker} with a default buffer size of 16KiB.
@@ -108,7 +109,7 @@ public class MessageBodyDechunker {
 	 * Parses the given data.
 	 * 
 	 * @param data The data
-	 * @throws InvalidHTTPMessageException If an error occurs while parsing the data
+	 * @throws InvalidHTTPMessageException If an error occurs while parsing the data, because it is malformed
 	 */
 	public void addData(byte[] data) throws InvalidHTTPMessageException {
 		if(this.chunkBuffer != null){
@@ -145,6 +146,7 @@ public class MessageBodyDechunker {
 					}else{
 						int write = Math.min(datasize, chunkLen);
 						this.writeToChunkBuffer(data, chunkHeaderEnd, write);
+						this.lastChunkSize = chunkLen;
 						this.lastChunkRemaining = chunkLen + EOL.length - datasize;
 						index = data.length;
 					}
@@ -157,7 +159,7 @@ public class MessageBodyDechunker {
 							this.writeToChunkBuffer(data, 0, write);
 						if(this.chunkBufferIndex > 0)
 							this.newData(Arrays.copyOf(this.chunkBuffer, this.chunkBufferIndex));
-						else if(write <= 0)
+						else if(this.lastChunkSize == 0)
 							this.end();
 						index += this.lastChunkRemaining;
 						this.chunkBufferIndex = 0;
