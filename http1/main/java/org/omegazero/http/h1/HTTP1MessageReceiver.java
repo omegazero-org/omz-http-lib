@@ -38,6 +38,8 @@ public abstract class HTTP1MessageReceiver {
 
 	private final int maxHeaderSize;
 
+	private byte[] headerBuffer;
+	private int headerBufferIndex;
 	private int headerSize = 0;
 	private int lVersion = -1;
 	protected HTTPHeaderContainer lHeaders;
@@ -139,32 +141,57 @@ public abstract class HTTP1MessageReceiver {
 		int index = offset;
 		while(index < data.length){
 			int end = ArrayUtil.indexOf(data, HTTP1Util.EOL, index);
-			if(end < 0)
-				throw new InvalidHTTPMessageException("No EOL");
-			int endL = end + HTTP1Util.EOL.length;
-			this.headerSize += endL - index;
+			if(end < 0){
+				if(this.headerBuffer == null)
+					this.headerBuffer = new byte[maxHeaderSize];
+				int remaining = data.length - index;
+				if(remaining > this.headerBuffer.length - this.headerBufferIndex)
+					throw new InvalidHTTPMessageException("HTTP message is too large (buf start)");
+				System.arraycopy(data, index, this.headerBuffer, this.headerBufferIndex, remaining);
+				this.headerBufferIndex += remaining;
+				break;
+			}
+			byte[] p_data;
+			int p_index, p_end;
+			if(this.headerBufferIndex > 0){
+				assert index == offset;
+				int remaining = end - index;
+				if(remaining > this.headerBuffer.length - this.headerBufferIndex)
+					throw new InvalidHTTPMessageException("HTTP message is too large (buf end)");
+				System.arraycopy(data, index, this.headerBuffer, this.headerBufferIndex, remaining);
+				p_data = this.headerBuffer;
+				p_index = 0;
+				p_end = this.headerBufferIndex + remaining;
+				this.headerBufferIndex = 0;
+			}else{
+				p_data = data;
+				p_index = index;
+				p_end = end;
+			}
+			int p_endL = p_end + HTTP1Util.EOL.length;
+			this.headerSize += p_endL - p_index;
 			if(this.headerSize > this.maxHeaderSize)
 				throw new InvalidHTTPMessageException("HTTP message is too large");
 			if(!this.isStartLineReceived()){
-				if(index != offset)
-					throw new AssertionError("Unexpected state: start line not received but index = " + index + ", offset = " + offset);
-				int len = end - index;
-				if(!HTTPValidator.bytesInRange(data, index, len, 32, 126))
+				assert index == offset : "Unexpected state: start line not received but index = " + index + ", offset = " + offset;
+				int len = p_end - p_index;
+				if(!HTTPValidator.bytesInRange(p_data, p_index, len, 32, 126))
 					throw new InvalidHTTPMessageException("Invalid characters in start line");
-				this.receiveStartLine(new String(data, index, len).split(" "));
-			}else if(end == index){
-				return end + HTTP1Util.EOL.length;
+				this.receiveStartLine(new String(p_data, p_index, len).split(" "));
+			}else if(p_end == p_index){
+				return p_endL;
 			}else{
 				if(this.lHeaders == null)
 					this.lHeaders = new HTTPHeaderContainer();
-				int sep = ArrayUtil.indexOf(data, (byte) ':', index, end - index);
+				int len = p_end - p_index;
+				int sep = ArrayUtil.indexOf(p_data, (byte) ':', p_index, len);
 				if(sep < 0)
 					throw new InvalidHTTPMessageException("Invalid header line");
-				if(!HTTPValidator.bytesInRange(data, index, end - index, 32, 126))
+				if(!HTTPValidator.bytesInRange(p_data, p_index, len, 32, 126))
 					throw new InvalidHTTPMessageException("Invalid characters in header line");
-				this.receiveHeader(new String(data, index, sep - index).toLowerCase(), new String(data, sep + 1, end - (sep + 1)).trim());
+				this.receiveHeader(new String(p_data, p_index, sep - p_index).toLowerCase(), new String(p_data, sep + 1, p_end - (sep + 1)).trim());
 			}
-			index = endL;
+			index = end + HTTP1Util.EOL.length;
 		}
 		return -1;
 	}
