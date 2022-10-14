@@ -70,6 +70,8 @@ public abstract class HTTP2Endpoint {
 	 */
 	protected long closeWaitTimeout = 5000000000L;
 
+	private int blockedErrorCount = 0;
+
 	/**
 	 * Creates a new {@link HTTP2Endpoint} instance.
 	 * 
@@ -197,7 +199,10 @@ public abstract class HTTP2Endpoint {
 				if(logger.debug())
 					logger.debug(this.connection.getRemoteName(), ": Error in stream ", (stream != null ? stream.getStreamId() : "(none)"), ": ",
 							HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
-				if(!this.connection.isWritable()){
+				boolean writable = this.connection.isWritable();
+				if(writable)
+					this.blockedErrorCount = 0;
+				if(!writable && ++this.blockedErrorCount > 500){
 					logger.warn("Attempted to notify peer of HTTP/2 error but connection is not writable; destroying socket [DoS mitigation]");
 					this.sendConnectionError(HTTP2Constants.STATUS_ENHANCE_YOUR_CALM);
 				}else if(h2e.isStreamError() && (stream instanceof MessageStream)){
