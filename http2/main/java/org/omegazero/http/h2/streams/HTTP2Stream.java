@@ -169,7 +169,7 @@ public abstract class HTTP2Stream {
 	 * @param length The number of bytes in <b>data</b> to write
 	 * @throws IOException If an IO error occurs
 	 */
-	protected static void writeFrame(WritableSocket connection, int streamId, int type, int flags, byte[] data, int offset, int length) throws IOException {
+	public static void writeFrame(WritableSocket connection, int streamId, int type, int flags, byte[] data, int offset, int length) throws IOException {
 		ArrayUtil.checkBounds(data, offset, length);
 		if(logger.debug())
 			logger.trace("local -> ", connection.getRemoteName(), " HTTP2 frame: stream=", streamId, " type=", type, " flags=", flags, " length=", length);
