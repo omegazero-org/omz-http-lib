@@ -54,11 +54,17 @@ public abstract class HTTP2Endpoint {
 
 	/**
 	 * Contains active and recently closed streams of this {@code HTTP2Endpoint}.
+	 *
+	 * @deprecated Since 1.2.4, direct access is discouraged; use {@link #registerStream(HTTP2Stream)} and {@link #getStream(int)} instead
 	 */
+	@Deprecated
 	protected Map<Integer, HTTP2Stream> streams = new java.util.concurrent.ConcurrentHashMap<>();
 	/**
 	 * Contains closed streams which will soon be removed from {@link #streams}.
+	 *
+	 * @deprecated Since 1.2.4, direct access is discouraged; use {@link #streamClosed(MessageStream)} instead
 	 */
+	@Deprecated
 	protected Deque<MessageStream> closeWaitStreams = new java.util.LinkedList<>();
 	/**
 	 * The stream ID of the latest stream that was processed.
@@ -68,9 +74,10 @@ public abstract class HTTP2Endpoint {
 	/**
 	 * The time in nanoseconds after which closed streams in {@link #closeWaitTimeout} are removed from {@link #streams}.
 	 */
-	protected long closeWaitTimeout = 5000000000L;
+	protected long closeWaitTimeout = 2000000000L;
 
 	private int blockedErrorCount = 0;
+	private int openMessageStreamCount = 0;
 
 	/**
 	 * Creates a new {@link HTTP2Endpoint} instance.
@@ -169,7 +176,7 @@ public abstract class HTTP2Endpoint {
 		byte[] payload = Arrays.copyOfRange(this.frameBuffer, HTTP2Constants.FRAME_HEADER_SIZE, this.frameExpectedSize);
 		if(logger.debug())
 			logger.trace(this.connection.getRemoteName(), " -> local HTTP2 frame: stream=", streamId, " type=", type, " flags=", flags, " length=", payload.length);
-		HTTP2Stream stream = this.streams.get(streamId);
+		HTTP2Stream stream = this.getStream(streamId);
 		try{
 			ControlStream controlStream = this.getControlStream();
 			if(stream == null){
@@ -177,13 +184,13 @@ public abstract class HTTP2Endpoint {
 					throw new HTTP2ConnectionError(HTTP2Constants.STATUS_PROTOCOL_ERROR);
 				stream = this.newStreamForFrame(streamId, type, flags, payload);
 				if(stream == null){
-					if(type != HTTP2Constants.FRAME_TYPE_PRIORITY)
+					if(type != HTTP2Constants.FRAME_TYPE_PRIORITY && type != HTTP2Constants.FRAME_TYPE_WINDOW_UPDATE)
 						throw new HTTP2ConnectionError(HTTP2Constants.STATUS_PROTOCOL_ERROR);
 					else
 						return;
 				}
 				this.highestStreamId = streamId;
-				this.streams.put(streamId, stream);
+				this.registerStream(stream);
 			}
 			if(!controlStream.isSettingsReceived() && type != HTTP2Constants.FRAME_TYPE_SETTINGS)
 				throw new HTTP2ConnectionError(HTTP2Constants.STATUS_PROTOCOL_ERROR);
@@ -197,19 +204,21 @@ public abstract class HTTP2Endpoint {
 			if(e instanceof HTTP2ConnectionError){
 				HTTP2ConnectionError h2e = (HTTP2ConnectionError) e;
 				if(logger.debug())
-					logger.debug(this.connection.getRemoteName(), ": Error in stream ", (stream != null ? stream.getStreamId() : "(none)"), ": ",
-							HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
+					logger.debug(this.connection.getRemoteName(), ": Error in stream ", streamId, ": ", HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
 				boolean writable = this.connection.isWritable();
 				if(writable)
 					this.blockedErrorCount = 0;
 				if(!writable && ++this.blockedErrorCount > 500){
 					logger.warn("Attempted to notify peer of HTTP/2 error but connection is not writable; destroying socket [DoS mitigation]");
 					this.sendConnectionError(HTTP2Constants.STATUS_ENHANCE_YOUR_CALM);
-				}else if(h2e.isStreamError() && (stream instanceof MessageStream)){
+				}else if(h2e.isStreamError() && (stream instanceof MessageStream || stream == null)){
 					try{
-						((MessageStream) stream).rst(h2e.getStatus());
+						if(stream != null)
+							((MessageStream) stream).rst(h2e.getStatus());
+						else
+							HTTP2Stream.writeFrame(this.connection, streamId, HTTP2Constants.FRAME_TYPE_RST_STREAM, 0, FrameUtil.int32BE(h2e.getStatus()), 0, 4);
 					}catch(IOException e2){
-						logger.debug(this.connection.getRemoteName(), ": Error while sending RST frame to stream ", stream.getStreamId(), ": ",
+						logger.debug(this.connection.getRemoteName(), ": Error while sending RST frame to stream ", streamId, ": ",
 								HTTP2Util.PRINT_STACK_TRACES ? e2 : e2.toString());
 					}
 				}else
@@ -248,31 +257,96 @@ public abstract class HTTP2Endpoint {
 	}
 
 	/**
+	 * Registers a locally created stream.
+	 * <p>
+	 * If applicable, {@link #streamClosed(MessageStream)} must be called with this stream when it closes.
+	 *
+	 * @param stream The stream
+	 */
+	protected void registerStream(HTTP2Stream stream){
+		this.streams.put(stream.getStreamId(), stream);
+		if(stream instanceof MessageStream)
+			this.openMessageStreamCount++;
+	}
+
+	/**
+	 * Notifies this {@code HTTP2Endpoint} that the given stream has closed. This method must be called for all message streams added using {@link #registerStream(HTTP2Stream)}
+	 * or returned by {@link #newStreamForFrame(int, int, int, byte[])} when the stream closes.
+	 *
+	 * @param stream The stream
+	 * @throws IllegalStateException If the stream is not closed
+	 * @since 1.2.4
+	 */
+	protected void streamClosed(MessageStream stream){
+		if(!stream.isClosed())
+			throw new IllegalStateException("Stream is not closed");
+		if(this.openMessageStreamCount > 0)
+			this.openMessageStreamCount--;
+		synchronized(this.closeWaitStreams){
+			this.closeWaitStreams.add(stream);
+		}
+	}
+
+	/**
 	 * Returns the connection control stream (stream with ID 0).
+	 * <p>
+	 * Equivalent to:
+	 * <pre><code>
+		(ControlStream) {@link #getStream(int) getStream}(0);
+	 * </pre></code>
 	 * 
 	 * @return The control stream
 	 */
-	protected ControlStream getControlStream() {
-		return (ControlStream) this.streams.get(0);
+	protected ControlStream getControlStream(){
+		return (ControlStream) this.getStream(0);
+	}
+
+	/**
+	 * Returns the stream with the given ID.
+	 * 
+	 * @param streamId The stream ID
+	 * @return The stream, or {@code null} if no stream with the given ID exists
+	 * @since 1.2.4
+	 * @see #getControlStream()
+	 * @see #getStreams()
+	 */
+	protected HTTP2Stream getStream(int streamId){
+		return this.streams.get(streamId);
+	}
+
+	/**
+	 * Returns a set of all known streams, including recently closed streams.
+	 *
+	 * @return A set of all streams
+	 * @since 1.2.4
+	 * @see #getStream(int)
+	 */
+	protected java.util.Collection<HTTP2Stream> getStreams(){
+		return this.streams.values();
+	}
+
+	/**
+	 * Returns the number of open {@link MessageStream}s.
+	 *
+	 * @return The number of open message streams
+	 * @since 1.2.4
+	 */
+	public int getOpenMessageStreamCount(){
+		return this.openMessageStreamCount;
 	}
 
 	/**
 	 * Checks whether the remote endpoint may cause a new stream to be created according to the local <i>MAX_CONCURRENT_STREAMS</i> setting.
+	 * If not, a {@link HTTP2ConnectionError} stream error with status code <i>REFUSED_STREAM</i> is thrown.
 	 * 
 	 * @throws HTTP2ConnectionError If no new stream may be created
 	 */
 	protected void checkRemoteCreateStream() throws HTTP2ConnectionError {
-		if(this.streams.size() + 1 > this.settings.get(HTTP2Constants.SETTINGS_MAX_CONCURRENT_STREAMS))
-			throw new HTTP2ConnectionError(HTTP2Constants.STATUS_ENHANCE_YOUR_CALM);
-	}
-
-	/**
-	 * Registers a locally created stream.
-	 * 
-	 * @param stream The stream
-	 */
-	protected void registerStream(HTTP2Stream stream) {
-		this.streams.put(stream.getStreamId(), stream);
+		int maxStreams = this.settings.get(HTTP2Constants.SETTINGS_MAX_CONCURRENT_STREAMS);
+		if((this.streams.size() >> 4) >= maxStreams)
+			throw new HTTP2ConnectionError(HTTP2Constants.STATUS_ENHANCE_YOUR_CALM, "Too many streams");
+		if(this.openMessageStreamCount >= maxStreams)
+			throw new HTTP2ConnectionError(HTTP2Constants.STATUS_REFUSED_STREAM, true, "MAX_CONCURRENT_STREAMS exceeded");
 	}
 
 	/**
@@ -282,7 +356,7 @@ public abstract class HTTP2Endpoint {
 	 * {@linkplain WritableSocket#isWritable() writable} again, after being unwritable previously.
 	 */
 	protected void handleConnectionWindowUpdate() {
-		for(HTTP2Stream s : this.streams.values()){
+		for(HTTP2Stream s : this.getStreams()){
 			if(s instanceof MessageStream)
 				((MessageStream) s).windowUpdate();
 		}

@@ -61,7 +61,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 	public void start() throws IOException {
 		super.connection.write(HTTP2Util.getClientPreface());
 		ControlStream cs = new ControlStream(super.connection, super.settings);
-		super.streams.put(0, cs);
+		super.registerStream(cs);
 		cs.setOnSettingsUpdate(this::onSettingsUpdate);
 		cs.setOnWindowUpdate(super::handleConnectionWindowUpdate);
 		cs.writeSettings(super.settings);
@@ -72,6 +72,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 	 * {@link MessageStream#sendHTTPMessage(org.omegazero.http.common.HTTPMessage, boolean)} on the returned stream to start the message exchange.
 	 * 
 	 * @return The created {@code MessageStream}, or {@code null} if no {@code MessageStream} could be created
+	 * @see #onMessageStreamClosed(MessageStream)
 	 */
 	public MessageStream createRequestStream() {
 		if(this.nextStreamId < 0) // overflow
@@ -89,6 +90,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 	 * 
 	 * @param promisedRequest The promise request sent by the server
 	 * @return The created {@code MessageStream}
+	 * @see #onMessageStreamClosed(MessageStream)
 	 */
 	public MessageStream handlePushPromise(HTTPRequest promisedRequest) {
 		if(!promisedRequest.hasAttachment(MessageStream.ATTACHMENT_KEY_STREAM_ID))
@@ -105,17 +107,14 @@ public class HTTP2Client extends HTTP2Endpoint {
 	}
 
 	/**
-	 * This method must be called by the application after a message stream closed to remove it from internal storage.
+	 * This method must be called by the application after a message stream returned by {@link #createRequestStream()} or {@link #handlePushPromise(HTTPRequest)}
+	 * closed to remove it from internal storage. Calls {@link HTTP2Endpoint#streamClosed(MessageStream)}.
 	 * 
-	 * @param messageStream The close message stream
-	 * @throws IllegalArgumentException If the stream is not closed
+	 * @param messageStream The closed message stream
+	 * @throws IllegalStateException If the stream is not closed
 	 */
 	public void onMessageStreamClosed(MessageStream messageStream) {
-		if(!messageStream.isClosed())
-			throw new IllegalArgumentException("Stream is not closed");
-		synchronized(super.closeWaitStreams){
-			super.closeWaitStreams.add(messageStream);
-		}
+		super.streamClosed(messageStream);
 	}
 
 	/**
@@ -125,7 +124,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 	 */
 	public void close() throws IOException {
 		try(/* java 8 compatibility */ WritableSocket conn = super.connection){
-			for(HTTP2Stream s : super.streams.values()){
+			for(HTTP2Stream s : super.getStreams()){
 				if(s instanceof MessageStream && !((MessageStream) s).isClosed())
 					((MessageStream) s).rst(HTTP2Constants.STATUS_CANCEL);
 			}
