@@ -6,8 +6,6 @@
  */
 package org.omegazero.http.h2.streams;
 
-import java.io.IOException;
-
 import org.omegazero.common.logging.Logger;
 import org.omegazero.common.util.ArrayUtil;
 import org.omegazero.http.h2.HTTP2ConnectionError;
@@ -52,9 +50,8 @@ public abstract class HTTP2Stream {
 	 * @param flags The frame flags
 	 * @param data The frame payload
 	 * @throws HTTP2ConnectionError If a <i>HTTP/2</i> connection error occurs, for example because the frame payload is invalid
-	 * @throws IOException If an IO error occurs
 	 */
-	public void receiveFrame(int type, int flags, byte[] data) throws IOException {
+	public void receiveFrame(int type, int flags, byte[] data) throws HTTP2ConnectionError {
 		if(type == FRAME_TYPE_WINDOW_UPDATE){
 			if(data.length != 4)
 				throw new HTTP2ConnectionError(STATUS_FRAME_SIZE_ERROR);
@@ -80,9 +77,8 @@ public abstract class HTTP2Stream {
 	 * @param type The frame type
 	 * @param flags The frame flags
 	 * @param data The frame payload
-	 * @throws IOException If an IO error occurs
 	 */
-	public void writeFrame(int type, int flags, byte[] data) throws IOException {
+	public void writeFrame(int type, int flags, byte[] data){
 		this.writeFrame(type, flags, data, 0, data.length);
 	}
 
@@ -94,10 +90,9 @@ public abstract class HTTP2Stream {
 	 * @param data The frame payload
 	 * @param offset The index in <b>data</b> to start reading from
 	 * @param length The total amount of bytes in <b>data</b> to write
-	 * @throws IOException If an IO error occurs
 	 * @throws IndexOutOfBoundsException If <b>offset</b> or <b>length</b> is invalid
 	 */
-	public void writeFrame(int type, int flags, byte[] data, int offset, int length) throws IOException {
+	public void writeFrame(int type, int flags, byte[] data, int offset, int length){
 		writeFrame(this.connection, this.streamId, type, flags, data, offset, length);
 	}
 
@@ -105,9 +100,8 @@ public abstract class HTTP2Stream {
 	 * Writes a {@linkplain org.omegazero.http.h2.util.HTTP2Constants#FRAME_TYPE_WINDOW_UPDATE window update} frame on this stream and updates internal window size information.
 	 * 
 	 * @param increment The window size increment
-	 * @throws IOException If an IO error occurs
 	 */
-	public void sendWindowSizeUpdate(int increment) throws IOException {
+	public void sendWindowSizeUpdate(int increment){
 		if(increment <= 0)
 			throw new IllegalArgumentException("Invalid window size increment: " + increment);
 		synchronized(this.windowSizeLock){
@@ -167,9 +161,8 @@ public abstract class HTTP2Stream {
 	 * @param data The frame payload
 	 * @param offset The offset in <b>data</b>
 	 * @param length The number of bytes in <b>data</b> to write
-	 * @throws IOException If an IO error occurs
 	 */
-	public static void writeFrame(WritableSocket connection, int streamId, int type, int flags, byte[] data, int offset, int length) throws IOException {
+	public static void writeFrame(WritableSocket connection, int streamId, int type, int flags, byte[] data, int offset, int length){
 		ArrayUtil.checkBounds(data, offset, length);
 		if(logger.debug())
 			logger.trace("local -> ", connection.getRemoteName(), " HTTP2 frame: stream=", streamId, " type=", type, " flags=", flags, " length=", length);

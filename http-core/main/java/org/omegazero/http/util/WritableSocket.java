@@ -7,10 +7,13 @@
 package org.omegazero.http.util;
 
 import java.io.Flushable;
-import java.io.IOException;
 
 /**
  * Provides an abstraction layer for outgoing data over a socket.
+ * <p>
+ * None of the methods in this interface can throw an {@code IOException}. If the underlying socket implementation encounters an IO error, it should either try to handle the error, or propagate the
+ * error using a {@link java.io.UncheckedIOException}. In this case, the error will usually be propagated further to the caller during (in-)direct write calls, or cause {@link #close()} to be called
+ * during internal write calls (this applies to any thrown exceptions).
  * 
  * @since 1.2.1
  */
@@ -21,10 +24,9 @@ public interface WritableSocket extends AutoCloseable, Flushable {
 	 * Writes the given <b>data</b> to this {@link WritableSocket}.
 	 * 
 	 * @param data The data
-	 * @throws IOException If an IO error occurs
 	 * @see #write(byte[], int, int)
 	 */
-	public default void write(byte[] data) throws IOException {
+	public default void write(byte[] data){
 		this.write(data, 0, data.length);
 	}
 
@@ -34,18 +36,15 @@ public interface WritableSocket extends AutoCloseable, Flushable {
 	 * @param data The data
 	 * @param offset The index to start writing from
 	 * @param length The number of bytes to write, starting at <b>offset</b>
-	 * @throws IOException If an IO error occurs
 	 * @see #write(byte[])
 	 */
-	public void write(byte[] data, int offset, int length) throws IOException;
+	public void write(byte[] data, int offset, int length);
 
 	/**
 	 * Flushes any remaining data in this {@link WritableSocket}'s write buffer.
-	 * 
-	 * @throws IOException If an IO error occurs
 	 */
 	@Override
-	public void flush() throws IOException;
+	public void flush();
 
 	/**
 	 * Returns {@code true} if this {@link WritableSocket} is connected, meaning data can still be written. This is distinct from {@link #isWritable()} because a socket may
@@ -74,9 +73,7 @@ public interface WritableSocket extends AutoCloseable, Flushable {
 
 	/**
 	 * Closes this {@link WritableSocket}.
-	 * 
-	 * @throws IOException If an IO error occurs
 	 */
 	@Override
-	public void close() throws IOException;
+	public void close();
 }

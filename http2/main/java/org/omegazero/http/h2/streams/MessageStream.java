@@ -7,7 +7,6 @@
 package org.omegazero.http.h2.streams;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -27,7 +26,6 @@ import org.omegazero.http.h2.hpack.HPackContext;
 import org.omegazero.http.h2.util.FrameUtil;
 import org.omegazero.http.h2.util.HTTP2Settings;
 import org.omegazero.http.h2.util.HTTP2Util;
-import org.omegazero.http.h2.util.StreamCallback;
 import org.omegazero.http.util.HTTPValidator;
 import org.omegazero.http.util.WritableSocket;
 
@@ -73,10 +71,10 @@ public class MessageStream extends HTTP2Stream {
 	private int promisedStreamId = -1;
 
 	private HTTPMessage receivedMessage;
-	private StreamCallback<HTTPRequest> onPushPromise;
-	private StreamCallback<HTTPMessageData> onMessage;
-	private StreamCallback<HTTPMessageData> onData;
-	private StreamCallback<HTTPMessageTrailers> onTrailers;
+	private Consumer<HTTPRequest> onPushPromise;
+	private Consumer<HTTPMessageData> onMessage;
+	private Consumer<HTTPMessageData> onData;
+	private Consumer<HTTPMessageTrailers> onTrailers;
 	private Runnable onDataFlushed;
 	private Consumer<Integer> onClosed;
 
@@ -126,11 +124,10 @@ public class MessageStream extends HTTP2Stream {
 	 * 
 	 * @param promisedStreamId The promised stream ID where the promise response is going to be sent on
 	 * @param request The request to send
-	 * @throws IOException If an IO error occurs
 	 * @throws IllegalStateException If this stream is not in {@code STATE_HALF_CLOSED}
 	 * @see #preparePush(boolean)
 	 */
-	public synchronized void sendPushPromise(int promisedStreamId, HTTPRequest request) throws IOException {
+	public synchronized void sendPushPromise(int promisedStreamId, HTTPRequest request){
 		if(this.state != STATE_HALF_CLOSED)
 			throw new IllegalStateException("Stream is not expecting a push promise");
 
@@ -143,10 +140,9 @@ public class MessageStream extends HTTP2Stream {
 	 * 
 	 * @param message The message to send
 	 * @param endStream Whether the message should end the stream and no payload data will be sent
-	 * @throws IOException If an IO error occurs
 	 * @throws IllegalStateException If this stream is not in {@code STATE_IDLE} (request) or {@code STATE_HALF_CLOSED} (response)
 	 */
-	public synchronized void sendHTTPMessage(HTTPMessage message, boolean endStream) throws IOException {
+	public synchronized void sendHTTPMessage(HTTPMessage message, boolean endStream){
 		if(this.state == STATE_IDLE)
 			this.state = STATE_OPEN;
 		else if(this.state != STATE_HALF_CLOSED)
@@ -160,10 +156,9 @@ public class MessageStream extends HTTP2Stream {
 	 * <i>CONTINUATION</i> frames. This will end the stream.
 	 * 
 	 * @param trailers The trailers to send
-	 * @throws IOException If an IO error occurs
 	 * @throws IllegalStateException If the stream is not in {@code STATE_OPEN} (request) or {@code STATE_HALF_CLOSED} (response)
 	 */
-	public synchronized void sendTrailers(HTTPMessageTrailers trailers) throws IOException {
+	public synchronized void sendTrailers(HTTPMessageTrailers trailers){
 		if(this.state != STATE_OPEN && this.state != STATE_HALF_CLOSED)
 			throw new IllegalStateException("Stream is not expecting trailers");
 
@@ -174,7 +169,7 @@ public class MessageStream extends HTTP2Stream {
 		this.writeHeaders(FRAME_TYPE_HEADERS, context, true);
 	}
 
-	private void writeMessage(int type, byte[] prependData, HTTPMessage message, boolean endStream) throws IOException {
+	private void writeMessage(int type, byte[] prependData, HTTPMessage message, boolean endStream){
 		HPackContext.EncoderContext context = new HPackContext.EncoderContext(message.headerNameCount(), prependData);
 		if(message instanceof HTTPRequest){
 			HTTPRequest request = (HTTPRequest) message;
@@ -193,7 +188,7 @@ public class MessageStream extends HTTP2Stream {
 		this.writeHeaders(type, context, endStream);
 	}
 
-	private void writeHeaders(int type, HPackContext.EncoderContext context, boolean endStream) throws IOException {
+	private void writeHeaders(int type, HPackContext.EncoderContext context, boolean endStream){
 		int maxFrameSize = this.remoteSettings.get(SETTINGS_MAX_FRAME_SIZE);
 		int index = 0;
 		byte[] data = context.getEncodedData();
@@ -230,10 +225,9 @@ public class MessageStream extends HTTP2Stream {
 	 * @param data The data to send
 	 * @param endStream Whether this is the last data packet sent on this stream
 	 * @return {@code true} If all data could be written because the receiver window size is large enough
-	 * @throws IOException If an IO error occurs
 	 * @throws IllegalStateException If the stream is not in {@code STATE_OPEN} (request) or {@code STATE_HALF_CLOSED} (response)
 	 */
-	public synchronized boolean sendData(byte[] data, boolean endStream) throws IOException {
+	public synchronized boolean sendData(byte[] data, boolean endStream){
 		if(this.state != STATE_OPEN && this.state != STATE_HALF_CLOSED)
 			throw new IllegalStateException("Stream is not expecting data");
 
@@ -258,7 +252,7 @@ public class MessageStream extends HTTP2Stream {
 		return flushed;
 	}
 
-	private boolean writeDataFrame(boolean eos, byte[] data) throws IOException {
+	private boolean writeDataFrame(boolean eos, byte[] data){
 		assert Thread.holdsLock(this);
 		synchronized(this.windowSizeLock){
 			int recWindow = this.getReceiverFlowControlWindowSize();
@@ -296,7 +290,7 @@ public class MessageStream extends HTTP2Stream {
 
 
 	@Override
-	public synchronized void receiveFrame(int type, int flags, byte[] data) throws IOException {
+	public synchronized void receiveFrame(int type, int flags, byte[] data) throws HTTP2ConnectionError {
 		if(type != FRAME_TYPE_PRIORITY && this.isClosed() && !this.isCloseOutgoing())
 			throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true);
 		if(HTTP2Stream.isFlowControlledFrameType(type)){
@@ -341,7 +335,7 @@ public class MessageStream extends HTTP2Stream {
 				this.receiveHeaderBlock(fragment, this.headersEndStream);
 			}else{
 				this.headersReceiving = true;
-				this.headersBuf.write(fragment);
+				this.headersBuf.write(fragment, 0, fragment.length);
 			}
 		}else if(type == FRAME_TYPE_PUSH_PROMISE){
 			if(this.localSettings.get(SETTINGS_ENABLE_PUSH) == 0)
@@ -372,14 +366,14 @@ public class MessageStream extends HTTP2Stream {
 				this.receiveHeaderBlock(fragment, this.headersEndStream);
 			}else{
 				this.headersReceiving = true;
-				this.headersBuf.write(fragment);
+				this.headersBuf.write(fragment, 0, fragment.length);
 			}
 		}else if(type == FRAME_TYPE_CONTINUATION){
 			if(!this.headersReceiving)
 				throw new HTTP2ConnectionError(STATUS_PROTOCOL_ERROR, "Unexpected CONTINUATION");
 			if(this.headersBuf.size() + data.length > this.localSettings.get(SETTINGS_MAX_HEADER_LIST_SIZE))
 				throw new HTTP2ConnectionError(STATUS_ENHANCE_YOUR_CALM, true, "Exceeded maxHeadersSize");
-			this.headersBuf.write(data);
+			this.headersBuf.write(data, 0, data.length);
 			boolean eoh = (flags & FRAME_FLAG_ANY_END_HEADERS) != 0;
 			if(eoh){
 				this.receiveHeaderBlock(this.headersBuf.toByteArray(), this.headersEndStream);
@@ -410,7 +404,7 @@ public class MessageStream extends HTTP2Stream {
 			super.receiveFrame(type, flags, data);
 	}
 
-	private void receiveHeaderBlock(byte[] data, boolean endStream) throws IOException {
+	private void receiveHeaderBlock(byte[] data, boolean endStream) throws HTTP2ConnectionError {
 		boolean pushPromise = this.state == STATE_RESERVED;
 		boolean request = this.state == STATE_OPEN || pushPromise;
 		if(endStream)
@@ -469,7 +463,7 @@ public class MessageStream extends HTTP2Stream {
 			this.close(STATUS_NO_ERROR, false);
 	}
 
-	private void receiveData(byte[] data, boolean endStream) throws IOException {
+	private void receiveData(byte[] data, boolean endStream){
 		if(endStream)
 			this.recvESnc();
 		if(this.onData != null)
@@ -489,7 +483,7 @@ public class MessageStream extends HTTP2Stream {
 
 
 	@Override
-	public void writeFrame(int type, int flags, byte[] data, int offset, int length) throws IOException {
+	public void writeFrame(int type, int flags, byte[] data, int offset, int length){
 		ArrayUtil.checkBounds(data, offset, length);
 		if(isFlowControlledFrameType(type)){
 			if(!this.canAcceptFlowControlledData(length))
@@ -514,25 +508,21 @@ public class MessageStream extends HTTP2Stream {
 		}
 		boolean dataFlushed;
 		synchronized(this.windowSizeLock){
-			try{
-				QueuedDataFrame qf;
-				while(super.connection.isWritable() && (qf = this.dataBacklog.peekFirst()) != null){
-					int recWindow = this.getReceiverFlowControlWindowSize();
-					if(recWindow == 0){
-						break;
-					}else if(recWindow < qf.remaining()){
-						this.writeFrame(FRAME_TYPE_DATA, 0, qf.payload, qf.index, recWindow);
-						qf.index += recWindow;
-						break;
-					}else{
-						this.dataBacklog.removeFirst();
-						this.writeFrame(FRAME_TYPE_DATA, qf.endStream ? FRAME_FLAG_ANY_END_STREAM : 0, qf.payload, qf.index, qf.remaining());
-						if(qf.endStream)
-							this.sentES();
-					}
+			QueuedDataFrame qf;
+			while(super.connection.isWritable() && (qf = this.dataBacklog.peekFirst()) != null){
+				int recWindow = this.getReceiverFlowControlWindowSize();
+				if(recWindow == 0){
+					break;
+				}else if(recWindow < qf.remaining()){
+					this.writeFrame(FRAME_TYPE_DATA, 0, qf.payload, qf.index, recWindow);
+					qf.index += recWindow;
+					break;
+				}else{
+					this.dataBacklog.removeFirst();
+					this.writeFrame(FRAME_TYPE_DATA, qf.endStream ? FRAME_FLAG_ANY_END_STREAM : 0, qf.payload, qf.index, qf.remaining());
+					if(qf.endStream)
+						this.sentES();
 				}
-			}catch(IOException e){
-				logger.debug(this.connection.getRemoteName(), ": windowUpdate: Error while sending pending data: ", HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
 			}
 			dataFlushed = this.dataBacklog.size() == 0;
 		}
@@ -576,9 +566,8 @@ public class MessageStream extends HTTP2Stream {
 	 * to <code>STATE_CLOSED</code> and calls <code>onClose</code>.
 	 * 
 	 * @param errorCode The status code to close the stream with
-	 * @throws IOException If an IO error occurs
 	 */
-	public void rst(int errorCode) throws IOException {
+	public void rst(int errorCode){
 		this.close(errorCode, true);
 		if(super.connection.isConnected())
 			this.writeFrame(FRAME_TYPE_RST_STREAM, 0, FrameUtil.int32BE(errorCode));
@@ -604,19 +593,19 @@ public class MessageStream extends HTTP2Stream {
 	}
 
 
-	public void setOnPushPromise(StreamCallback<HTTPRequest> onPushPromise) {
+	public void setOnPushPromise(Consumer<HTTPRequest> onPushPromise) {
 		this.onPushPromise = onPushPromise;
 	}
 
-	public void setOnMessage(StreamCallback<HTTPMessageData> onMessage) {
+	public void setOnMessage(Consumer<HTTPMessageData> onMessage) {
 		this.onMessage = onMessage;
 	}
 
-	public void setOnData(StreamCallback<HTTPMessageData> onData) {
+	public void setOnData(Consumer<HTTPMessageData> onData) {
 		this.onData = onData;
 	}
 
-	public void setOnTrailers(StreamCallback<HTTPMessageTrailers> onTrailers) {
+	public void setOnTrailers(Consumer<HTTPMessageTrailers> onTrailers) {
 		this.onTrailers = onTrailers;
 	}
 
@@ -636,11 +625,7 @@ public class MessageStream extends HTTP2Stream {
 	 */
 	public void setReceiveData(boolean receiveData) {
 		if(!this.receiveData && receiveData){ // was re-enabled
-			try{
-				super.sendWindowSizeUpdate(this.localSettings.get(SETTINGS_INITIAL_WINDOW_SIZE));
-			}catch(IOException e){
-				logger.debug(this.connection.getRemoteName(), ": setReceiveData: Error while sending window size update: ", HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
-			}
+			super.sendWindowSizeUpdate(this.localSettings.get(SETTINGS_INITIAL_WINDOW_SIZE));
 		}
 		this.receiveData = receiveData;
 	}

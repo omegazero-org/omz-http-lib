@@ -55,10 +55,8 @@ public class HTTP2Client extends HTTP2Endpoint {
 
 	/**
 	 * Starts the <i>HTTP/2</i> client by sending the client connection preface and <i>SETTINGS</i> frame.
-	 * 
-	 * @throws IOException If an IO error occurs
 	 */
-	public void start() throws IOException {
+	public void start(){
 		super.connection.write(HTTP2Util.getClientPreface());
 		ControlStream cs = new ControlStream(super.connection, super.settings);
 		super.registerStream(cs);
@@ -122,7 +120,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 	 * 
 	 * @throws IOException If an IO error occurs
 	 */
-	public void close() throws IOException {
+	public void close(){
 		try(/* java 8 compatibility */ WritableSocket conn = super.connection){
 			for(HTTP2Stream s : super.getStreams()){
 				if(s instanceof MessageStream && !((MessageStream) s).isClosed())
@@ -145,7 +143,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 
 
 	@Override
-	protected HTTP2Stream newStreamForFrame(int streamId, int type, int flags, byte[] payload) throws IOException {
+	protected HTTP2Stream newStreamForFrame(int streamId, int type, int flags, byte[] payload){
 		return null;
 	}
 }

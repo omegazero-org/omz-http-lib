@@ -6,7 +6,7 @@
  */
 package org.omegazero.http.h2;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
@@ -117,9 +117,8 @@ public abstract class HTTP2Endpoint {
 	 * @param payload The frame payload
 	 * @return The new stream, or {@code null} if no stream is appropriate
 	 * @throws HTTP2ConnectionError If the received frame is invalid or unexpected
-	 * @throws IOException If an IO error occurs
 	 */
-	protected abstract HTTP2Stream newStreamForFrame(int streamId, int type, int flags, byte[] payload) throws IOException;
+	protected abstract HTTP2Stream newStreamForFrame(int streamId, int type, int flags, byte[] payload) throws HTTP2ConnectionError;
 
 
 	/**
@@ -217,13 +216,15 @@ public abstract class HTTP2Endpoint {
 							((MessageStream) stream).rst(h2e.getStatus());
 						else
 							HTTP2Stream.writeFrame(this.connection, streamId, HTTP2Constants.FRAME_TYPE_RST_STREAM, 0, FrameUtil.int32BE(h2e.getStatus()), 0, 4);
-					}catch(IOException e2){
+					}catch(Exception e2){
 						logger.debug(this.connection.getRemoteName(), ": Error while sending RST frame to stream ", streamId, ": ",
 								HTTP2Util.PRINT_STACK_TRACES ? e2 : e2.toString());
 					}
 				}else
 					this.sendConnectionError(h2e.getStatus());
 			}else{
+				if(e instanceof UncheckedIOException)
+					e = ((UncheckedIOException) e).getCause();
 				logger.warn(this.connection.getRemoteName(), ": Error while processing frame: ", HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
 				this.sendConnectionError(HTTP2Constants.STATUS_INTERNAL_ERROR);
 			}
@@ -233,9 +234,10 @@ public abstract class HTTP2Endpoint {
 	private void sendConnectionError(int status) {
 		try{
 			this.getControlStream().sendGoaway(this.highestStreamId, status);
-			this.connection.close();
-		}catch(IOException e){
+		}catch(Exception e){
 			logger.debug(this.connection.getRemoteName(), ": Error while closing connection after connection error: ", HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
+		}finally{
+			this.connection.close();
 		}
 	}
 

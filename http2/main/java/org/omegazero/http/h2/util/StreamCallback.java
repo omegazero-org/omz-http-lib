@@ -10,12 +10,12 @@ import java.io.IOException;
 
 /**
  * A functional interface similar to a {@link java.util.function.Consumer Consumer}, except that the functional method may throw an {@link IOException}.
- * <p>
- * This interface is used as a callback in <i>HTTP/2</i> stream implementations.
  * 
  * @param <T> The type of the input parameter
  * @since 1.2.1
+ * @deprecated Since 1.3.1, {@code IOException}s can no longer be thrown from callbacks in <i>HTTP/2</i> stream implementations
  */
+@Deprecated
 @FunctionalInterface
 public interface StreamCallback<T> {
 

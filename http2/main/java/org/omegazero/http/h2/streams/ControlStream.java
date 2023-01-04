@@ -6,8 +6,8 @@
  */
 package org.omegazero.http.h2.streams;
 
-import java.io.IOException;
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 import org.omegazero.common.logging.Logger;
 import org.omegazero.common.util.ReflectionUtil;
@@ -15,7 +15,6 @@ import org.omegazero.http.h2.HTTP2ConnectionError;
 import org.omegazero.http.h2.util.FrameUtil;
 import org.omegazero.http.h2.util.HTTP2Constants;
 import org.omegazero.http.h2.util.HTTP2Settings;
-import org.omegazero.http.h2.util.StreamCallback;
 import org.omegazero.http.util.WritableSocket;
 
 import static org.omegazero.http.h2.util.HTTP2Constants.*;
@@ -35,7 +34,7 @@ public class ControlStream extends HTTP2Stream {
 	private final HTTP2Settings localSettings;
 	private final HTTP2Settings remoteSettings = new HTTP2Settings();
 
-	private StreamCallback<HTTP2Settings> onSettingsUpdate;
+	private Consumer<HTTP2Settings> onSettingsUpdate;
 	private Runnable onWindowUpdate;
 	private boolean settingsReceived = false;
 
@@ -59,9 +58,8 @@ public class ControlStream extends HTTP2Stream {
 	 * 
 	 * @param highestStreamId The last processed stream ID
 	 * @param errorCode The error code
-	 * @throws IOException If an IO error occurs
 	 */
-	public void sendGoaway(int highestStreamId, int errorCode) throws IOException {
+	public void sendGoaway(int highestStreamId, int errorCode){
 		byte[] payload = new byte[8];
 		FrameUtil.writeInt32BE(payload, 0, highestStreamId);
 		FrameUtil.writeInt32BE(payload, 4, errorCode);
@@ -72,9 +70,8 @@ public class ControlStream extends HTTP2Stream {
 	 * Sends a <i>{@linkplain org.omegazero.http.h2.util.HTTP2Constants#FRAME_TYPE_SETTINGS SETTINGS}</i> frame with the given {@link HTTP2Settings} data on this control stream.
 	 * 
 	 * @param settings The settings
-	 * @throws IOException If an IO error occurs
 	 */
-	public void writeSettings(HTTP2Settings settings) throws IOException {
+	public void writeSettings(HTTP2Settings settings){
 		byte[] buf = new byte[SETTINGS_COUNT * 6];
 		int buflen = 0;
 		for(int i = 1; i < SETTINGS_COUNT; i++){
@@ -89,7 +86,7 @@ public class ControlStream extends HTTP2Stream {
 
 
 	@Override
-	public void receiveFrame(int type, int flags, byte[] data) throws IOException {
+	public void receiveFrame(int type, int flags, byte[] data) throws HTTP2ConnectionError {
 		if(type == FRAME_TYPE_SETTINGS){
 			if((flags & FRAME_FLAG_ANY_ACK) != 0){
 				if(data.length > 0)
@@ -149,7 +146,7 @@ public class ControlStream extends HTTP2Stream {
 	 * 
 	 * @param onSettingsUpdate The callback
 	 */
-	public void setOnSettingsUpdate(StreamCallback<HTTP2Settings> onSettingsUpdate) {
+	public void setOnSettingsUpdate(Consumer<HTTP2Settings> onSettingsUpdate) {
 		this.onSettingsUpdate = onSettingsUpdate;
 	}
 

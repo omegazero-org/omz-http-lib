@@ -50,11 +50,10 @@ public class HTTP1MessageTransmitter {
 	 * in the constructor.
 	 * 
 	 * @param msg The {@code HTTPMessage}
-	 * @throws java.io.IOException If an IO error occurs
 	 * @see #generate(HTTPMessage)
 	 * @see #HTTP1MessageTransmitter(WritableSocket)
 	 */
-	public void send(HTTPMessage msg) throws java.io.IOException {
+	public void send(HTTPMessage msg){
 		if(this.socket == null)
 			throw new IllegalStateException("No socket configured");
 		this.socket.write(this.generate(msg));
