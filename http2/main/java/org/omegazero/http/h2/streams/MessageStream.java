@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 
 import org.omegazero.common.logging.Logger;
 import org.omegazero.common.util.ArrayUtil;
+import org.omegazero.common.util.function.SpecificThrowingConsumer;
 import org.omegazero.http.common.HTTPHeaderContainer;
 import org.omegazero.http.common.HTTPMessage;
 import org.omegazero.http.common.HTTPMessageData;
@@ -71,10 +72,10 @@ public class MessageStream extends HTTP2Stream {
 	private int promisedStreamId = -1;
 
 	private HTTPMessage receivedMessage;
-	private Consumer<HTTPRequest> onPushPromise;
-	private Consumer<HTTPMessageData> onMessage;
-	private Consumer<HTTPMessageData> onData;
-	private Consumer<HTTPMessageTrailers> onTrailers;
+	private SpecificThrowingConsumer<HTTP2ConnectionError, HTTPRequest> onPushPromise;
+	private SpecificThrowingConsumer<HTTP2ConnectionError, HTTPMessageData> onMessage;
+	private SpecificThrowingConsumer<HTTP2ConnectionError, HTTPMessageData> onData;
+	private SpecificThrowingConsumer<HTTP2ConnectionError, HTTPMessageTrailers> onTrailers;
 	private Runnable onDataFlushed;
 	private Consumer<Integer> onClosed;
 
@@ -463,7 +464,7 @@ public class MessageStream extends HTTP2Stream {
 			this.close(STATUS_NO_ERROR, false);
 	}
 
-	private void receiveData(byte[] data, boolean endStream){
+	private void receiveData(byte[] data, boolean endStream) throws HTTP2ConnectionError {
 		if(endStream)
 			this.recvESnc();
 		if(this.onData != null)
@@ -593,19 +594,19 @@ public class MessageStream extends HTTP2Stream {
 	}
 
 
-	public void setOnPushPromise(Consumer<HTTPRequest> onPushPromise) {
+	public void setOnPushPromise(SpecificThrowingConsumer<HTTP2ConnectionError, HTTPRequest> onPushPromise) {
 		this.onPushPromise = onPushPromise;
 	}
 
-	public void setOnMessage(Consumer<HTTPMessageData> onMessage) {
+	public void setOnMessage(SpecificThrowingConsumer<HTTP2ConnectionError, HTTPMessageData> onMessage) {
 		this.onMessage = onMessage;
 	}
 
-	public void setOnData(Consumer<HTTPMessageData> onData) {
+	public void setOnData(SpecificThrowingConsumer<HTTP2ConnectionError, HTTPMessageData> onData) {
 		this.onData = onData;
 	}
 
-	public void setOnTrailers(Consumer<HTTPMessageTrailers> onTrailers) {
+	public void setOnTrailers(SpecificThrowingConsumer<HTTP2ConnectionError, HTTPMessageTrailers> onTrailers) {
 		this.onTrailers = onTrailers;
 	}
 
