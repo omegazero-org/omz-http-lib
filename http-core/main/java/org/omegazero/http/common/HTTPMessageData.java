@@ -16,9 +16,18 @@ public class HTTPMessageData implements java.io.Serializable {
 	private static final long serialVersionUID = 1L;
 
 
+	/**
+	 * See {@link #getHttpMessage()}.
+	 */
 	protected final HTTPMessage httpMessage;
+	/**
+	 * See {@link #isLastPacket()}.
+	 */
 	protected final boolean lastPacket;
 
+	/**
+	 * See {@link #getData()}.
+	 */
 	protected byte[] data;
 
 	/**

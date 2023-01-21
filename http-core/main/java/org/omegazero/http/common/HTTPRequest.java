@@ -20,11 +20,26 @@ public class HTTPRequest extends HTTPMessage {
 	private static final long serialVersionUID = 1L;
 
 
+	/**
+	 * The HTTP request method.
+	 */
 	protected String method;
+	/**
+	 * The HTTP request scheme.
+	 */
 	protected String scheme;
+	/**
+	 * The HTTP request authority.
+	 */
 	protected String authority;
+	/**
+	 * The HTTP request path.
+	 */
 	protected String path;
 
+	/**
+	 * The {@link HTTPResponder} to use in the {@code respond} methods.
+	 */
 	protected transient HTTPResponder httpResponder;
 
 	/**

@@ -21,11 +21,23 @@ public abstract class HTTPMessage extends HTTPHeaderContainer {
 	protected final long createdTime = System.currentTimeMillis();
 
 
+	/**
+	 * The HTTP version string.
+	 */
 	protected String httpVersion;
+	/**
+	 * Whether the data for this {@code HTTPMessage} is transferred in chunks instead of a blob with a predetermined size. See {@link #isChunkedTransfer()}.
+	 */
 	protected boolean chunkedTransfer;
 
+	/**
+	 * See {@link #getOther()}.
+	 */
 	protected transient HTTPMessage other;
 
+	/**
+	 * See {@link #isLocked()}.
+	 */
 	protected transient boolean locked = false;
 
 	/**

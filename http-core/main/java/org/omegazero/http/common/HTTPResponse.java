@@ -16,6 +16,9 @@ public class HTTPResponse extends HTTPMessage {
 	private static final long serialVersionUID = 1L;
 
 
+	/**
+	 * The HTTP response status.
+	 */
 	protected int status;
 
 	/**
