@@ -6,6 +6,7 @@
  */
 package org.omegazero.http.util;
 
+import java.io.Closeable;
 import java.io.Flushable;
 
 /**
@@ -17,7 +18,7 @@ import java.io.Flushable;
  * 
  * @since 1.2.1
  */
-public interface WritableSocket extends AutoCloseable, Flushable {
+public interface WritableSocket extends Closeable, Flushable {
 
 
 	/**
