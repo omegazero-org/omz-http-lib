@@ -6,19 +6,18 @@
  */
 package org.omegazero.http.h2;
 
-import java.io.IOException;
-
 import org.omegazero.common.util.ReflectionUtil;
+import org.omegazero.http.common.HTTPException;
 import org.omegazero.http.h2.util.HTTP2Constants;
 
 /**
  * Represents a <i>HTTP/2</i> connection or stream error.
  * 
  * @since 1.2.1
- * @apiNote Despite the name, this class is an {@code Exception} (specifically an {@link IOException}) not an {@code Error}. The name was chosen to align more closely with the
+ * @apiNote Despite the name, this class is an {@code Exception} (specifically a {@link HTTPException}) not an {@code Error}. The name was chosen to align more closely with the
  * terms used in the specification.
  */
-public class HTTP2ConnectionError extends IOException {
+public class HTTP2ConnectionError extends HTTPException {
 
 	private static final long serialVersionUID = 1L;
 

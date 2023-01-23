@@ -6,14 +6,12 @@
  */
 package org.omegazero.http.common;
 
-import java.io.IOException;
-
 /**
  * An exception thrown when a malformed or otherwise invalid {@link HTTPMessage} is encountered.
  * 
  * @since 1.2.1
  */
-public class InvalidHTTPMessageException extends IOException {
+public class InvalidHTTPMessageException extends HTTPException {
 
 	private static final long serialVersionUID = 1L;
 
