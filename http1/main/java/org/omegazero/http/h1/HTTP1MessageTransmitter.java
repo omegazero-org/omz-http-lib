@@ -57,6 +57,7 @@ public class HTTP1MessageTransmitter {
 		if(this.socket == null)
 			throw new IllegalStateException("No socket configured");
 		this.socket.write(this.generate(msg));
+		this.socket.flush();
 	}
 
 	/**
