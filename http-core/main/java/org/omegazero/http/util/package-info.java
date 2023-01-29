@@ -1,4 +1,4 @@
 /**
- * Provides utility classes for any HTTP version.
+ * Provides utility classes and an abstraction layer for HTTP communication of any HTTP version.
  */
 package org.omegazero.http.util;

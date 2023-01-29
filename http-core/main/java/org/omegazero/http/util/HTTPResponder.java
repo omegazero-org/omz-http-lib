@@ -16,6 +16,13 @@ import org.omegazero.http.common.HTTPResponseData;
  */
 public interface HTTPResponder {
 
+	/**
+	 * A byte array with length zero.
+	 *
+	 * @since 1.4.1
+	 */
+	public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
 
 	/**
 	 * Responds to the given <b>request</b> with the given <b>response</b>, if the request has not already received a response.
