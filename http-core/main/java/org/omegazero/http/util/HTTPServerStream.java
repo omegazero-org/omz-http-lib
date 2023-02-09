@@ -52,6 +52,22 @@ public interface HTTPServerStream extends HTTPMessageStream {
 
 
 	/**
+	 * Starts a server push stream with the given push request.
+	 * <p>
+	 * This method must be called before {@link #startResponse(HTTPResponse)}.
+	 * <p>
+	 * The returned new {@code HTTPServerStream} is used to send the pushed response the same way a regular response is sent. No callbacks will be called on this {@code HTTPServerStream}.
+	 *
+	 * @param request The push request
+	 * @return The new {@code HTTPServerStream} used to send the response
+	 * @throws UnsupportedOperationException If server push is not supported or not enabled ({@link HTTPServer#isServerPushEnabled()} returns {@code false})
+	 */
+	public default HTTPServerStream startServerPush(HTTPRequest request){
+		throw new UnsupportedOperationException();
+	}
+
+
+	/**
 	 * Starts a response with the given response header.
 	 * <p>
 	 * Unlike the {@code respond} methods, this does not end the response stream, but allows data to be streamed in multiple calls to {@link #sendResponseData(byte[], boolean)}.

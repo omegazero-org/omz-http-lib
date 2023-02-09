@@ -44,6 +44,17 @@ public interface HTTPClient extends java.io.Closeable {
 
 
 	/**
+	 * Enables or disabled server push.
+	 * <p>
+	 * If server push is not supported by the underlying protocol, this setting has no effect.
+	 *
+	 * @param enabled {@code true} to enable server push
+	 */
+	public default void setServerPushEnabled(boolean enabled){
+	}
+
+
+	/**
 	 * Creates a new {@code HTTPClientStream} for the given <b>request</b>.
 	 * <p>
 	 * It is possible that this {@code HTTPClient} cannot create a new request stream. In this case, {@code null} is returned.

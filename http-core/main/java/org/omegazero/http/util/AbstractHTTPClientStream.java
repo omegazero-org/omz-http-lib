@@ -25,6 +25,7 @@ public abstract class AbstractHTTPClientStream extends AbstractHTTPMessageStream
 
 	protected HTTPResponse response;
 
+	protected Consumer<HTTPClientStream> onServerPush;
 	protected Consumer<HTTPResponse> onResponse;
 	protected Consumer<HTTPResponseData> onResponseData;
 	protected Consumer<HTTPMessageTrailers> onResponseEnded;
@@ -40,6 +41,16 @@ public abstract class AbstractHTTPClientStream extends AbstractHTTPMessageStream
 		this.client = Objects.requireNonNull(client);
 	}
 
+
+	/**
+	 * Calls the {@code onServerPush} callback.
+	 *
+	 * @param reqstream The pushed response stream
+	 */
+	public void callOnServerPush(HTTPClientStream reqstream){
+		if(this.onServerPush != null)
+			this.onServerPush.accept(reqstream);
+	}
 
 	/**
 	 * Calls the {@code onResponse} callback and stores the response, if {@link HTTPResponse#isIntermediateMessage()} is {@code false}.
@@ -83,6 +94,11 @@ public abstract class AbstractHTTPClientStream extends AbstractHTTPMessageStream
 	@Override
 	public HTTPResponse getResponse(){
 		return this.response;
+	}
+
+	@Override
+	public void onServerPush(Consumer<HTTPClientStream> onServerPush){
+		this.onServerPush = onServerPush;
 	}
 
 	@Override

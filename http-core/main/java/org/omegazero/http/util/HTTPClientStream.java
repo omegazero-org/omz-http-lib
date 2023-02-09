@@ -62,6 +62,21 @@ public interface HTTPClientStream extends HTTPMessageStream {
 
 
 	/**
+	 * Sets a callback that is called when this {@code HTTPClientStream} receives a pushed request.
+	 * <p>
+	 * This callback is always called before the {@code onResponse} callback. If the underlying protocol does not support server push, this callback is never called.
+	 * <p>
+	 * The new {@code HTTPClientStream} passed to the callback is used to receive the pushed response.
+	 * The methods {@link #startRequest()}, {@link #sendRequestData(byte[], boolean)}, and {@link #endRequest(HTTPMessageTrailers)} should not be called on this {@code HTTPClientStream}.
+	 * The {@code onResponse} callback will be called as soon as the pushed response is received.
+	 *
+	 * @param onServerPush The callback
+	 */
+	public default void onServerPush(Consumer<HTTPClientStream> onServerPush){
+	}
+
+
+	/**
 	 * Returns the received response of this {@code HTTPClientStream}, or {@code null} if no response was received yet.
 	 *
 	 * @return The response

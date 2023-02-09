@@ -45,6 +45,16 @@ public interface HTTPServer extends HTTPResponder, java.io.Closeable {
 
 
 	/**
+	 * Returns {@code true} if server push is supported and enabled.
+	 *
+	 * @return {@code true} if server push is available
+	 */
+	public default boolean isServerPushEnabled(){
+		return false;
+	}
+
+
+	/**
 	 * Sets the callback that is called when a new {@link HTTPServerStream} was created after receiving a request from the client.
 	 * <p>
 	 * No callbacks in the {@code HTTPServerStream} are called before the given callback has returned.
