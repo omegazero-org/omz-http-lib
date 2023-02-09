@@ -68,8 +68,11 @@ public class ControlStream extends HTTP2Stream {
 
 	/**
 	 * Sends a <i>{@linkplain org.omegazero.http.h2.util.HTTP2Constants#FRAME_TYPE_SETTINGS SETTINGS}</i> frame with the given {@link HTTP2Settings} data on this control stream.
-	 * 
+	 * <p>
+	 * This method send all setting values that differ from the default value.
+	 *
 	 * @param settings The settings
+	 * @see #writeSettings(HTTP2Settings, int...)
 	 */
 	public void writeSettings(HTTP2Settings settings){
 		byte[] buf = new byte[SETTINGS_COUNT * 6];
@@ -82,6 +85,26 @@ public class ControlStream extends HTTP2Stream {
 			}
 		}
 		super.writeFrame(FRAME_TYPE_SETTINGS, 0, Arrays.copyOf(buf, buflen));
+	}
+
+	/**
+	 * Sends a <i>{@linkplain org.omegazero.http.h2.util.HTTP2Constants#FRAME_TYPE_SETTINGS SETTINGS}</i> frame with the given {@link HTTP2Settings} data on this control stream.
+	 * <p>
+	 * This method send all settings with an ID in <b>settingIds</b>.
+	 *
+	 * @param settings The settings
+	 * @param settingIds The IDs of the settings to send
+	 * @see #writeSettings(HTTP2Settings)
+	 */
+	public void writeSettings(HTTP2Settings settings, int... settingIds){
+		byte[] buf = new byte[settingIds.length * 6];
+		int buflen = 0;
+		for(int s : settingIds){
+			FrameUtil.writeInt16BE(buf, buflen, s);
+			FrameUtil.writeInt32BE(buf, buflen + 2, settings.get(s));
+			buflen += 6;
+		}
+		super.writeFrame(FRAME_TYPE_SETTINGS, 0, buf);
 	}
 
 
