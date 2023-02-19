@@ -393,7 +393,7 @@ public class MessageStream extends HTTP2Stream {
 			byte[] fdata = Arrays.copyOfRange(data, index, data.length - padding);
 			boolean es = (flags & FRAME_FLAG_ANY_END_STREAM) != 0;
 			this.receiveData(fdata, es);
-			if(this.receiveData && data.length > 0)
+			if(this.receiveData && data.length > 0 && !this.isClosed())
 				super.sendWindowSizeUpdate(data.length);
 		}else if(type == FRAME_TYPE_RST_STREAM){
 			if(data.length != 4)
@@ -625,7 +625,7 @@ public class MessageStream extends HTTP2Stream {
 	 * @param receiveData {@code true} to continue receiving flow-controlled data
 	 */
 	public void setReceiveData(boolean receiveData) {
-		if(!this.receiveData && receiveData){ // was re-enabled
+		if(!this.receiveData && receiveData && !this.isClosed()){ // was re-enabled
 			super.sendWindowSizeUpdate(this.localSettings.get(SETTINGS_INITIAL_WINDOW_SIZE));
 		}
 		this.receiveData = receiveData;
