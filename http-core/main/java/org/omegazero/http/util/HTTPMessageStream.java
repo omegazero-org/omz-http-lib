@@ -9,6 +9,7 @@ package org.omegazero.http.util;
 import java.util.function.Consumer;
 
 import org.omegazero.http.common.HTTPRequest;
+import org.omegazero.http.common.MessageStreamClosedException;
 
 /**
  * A {@code HTTPMessageStream} represents a single HTTP request transaction.
@@ -58,10 +59,21 @@ public interface HTTPMessageStream extends java.io.Closeable {
 	public boolean isClosed();
 
 	/**
-	 * Terminates this {@code HTTPMessageStream} at any time, causing no further callbacks to be called and the transaction with the peer to end abnormally.
-	 * <p>
-	 * Calling this method after this {@code HTTPMessageStream} ended (successfully or abnormally) has no effects.
+	 * Calls {@link #close(MessageStreamClosedException.CloseReason)} with reason {@link MessageStreamClosedException.CloseReason#UNKNOWN}.
 	 */
 	@Override
-	public void close();
+	public default void close(){
+		this.close(MessageStreamClosedException.CloseReason.UNKNOWN);
+	}
+
+	/**
+	 * Terminates this {@code HTTPMessageStream} at any time, causing no further callbacks to be called and the transaction with the peer to end abnormally.
+	 * <p>
+	 * An optional reason can be specified in the <b>closeReason</b> parameter, which may be passed on to the peer, if supported by the underlying protocol.
+	 * <p>
+	 * Calling this method after this {@code HTTPMessageStream} ended (successfully or abnormally) has no effects.
+	 *
+	 * @param closeReason An optional reason this message stream is being closed
+	 */
+	public void close(MessageStreamClosedException.CloseReason closeReason);
 }
