@@ -10,6 +10,7 @@ import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Set;
 
 import org.omegazero.common.logging.Logger;
 import org.omegazero.http.h2.hpack.HPackContext;
@@ -58,18 +59,24 @@ public abstract class HTTP2Endpoint {
 	 * @deprecated Since 1.2.4, direct access is discouraged; use {@link #registerStream(HTTP2Stream)} and {@link #getStream(int)} instead
 	 */
 	@Deprecated
-	protected Map<Integer, HTTP2Stream> streams = new java.util.concurrent.ConcurrentHashMap<>();
+	protected final Map<Integer, HTTP2Stream> streams = new java.util.concurrent.ConcurrentHashMap<>();
 	/**
 	 * Contains closed streams which will soon be removed from {@link #streams}.
 	 *
 	 * @deprecated Since 1.2.4, direct access is discouraged; use {@link #streamClosed(MessageStream)} instead
 	 */
 	@Deprecated
-	protected Deque<MessageStream> closeWaitStreams = new java.util.LinkedList<>();
+	protected final Deque<MessageStream> closeWaitStreams = new java.util.LinkedList<>();
 	/**
 	 * The stream ID of the latest stream that was processed.
 	 */
 	protected int highestStreamId = 0;
+	/**
+	 * The set of {@link MessageStream}s initiated by the peer. May be {@code null} if the peer has not initiated any streams yet.
+	 *
+	 * @since 1.4.1
+	 */
+	protected final Set<MessageStream> peerInitiatedStreams = new java.util.HashSet<>();
 
 	/**
 	 * The time in nanoseconds after which closed streams in {@link #closeWaitTimeout} are removed from {@link #streams}.
@@ -108,9 +115,13 @@ public abstract class HTTP2Endpoint {
 
 
 	/**
-	 * Processes a frame received on a previously nonexistent stream and creates a new {@code HTTP2Stream} for it, if appropriate. If {@code null} is returned (no stream was
-	 * created), and the frame type is not <i>PRIORITY</i>, it will be treated as a connection error of type <i>PROTOCOL_ERROR</i>.
-	 * 
+	 * Processes a frame received on a previously nonexistent stream and creates a new {@code HTTP2Stream} for it, if appropriate.
+	 * <p>
+	 * The returned stream is registered automatically using {@link #registerStream(HTTP2Stream, boolean)}.
+	 * If {@code null} is returned (no stream was created), and the frame type is not <i>PRIORITY</i>, it will be treated as a connection error of type <i>PROTOCOL_ERROR</i>.
+	 * <p>
+	 * When creating a stream, the implementation should call {@link #checkRemoteCreateStream()} first.
+	 *
 	 * @param streamId The stream ID of the new stream
 	 * @param type The frame type
 	 * @param flags The frame flags
@@ -189,7 +200,7 @@ public abstract class HTTP2Endpoint {
 						return;
 				}
 				this.highestStreamId = streamId;
-				this.registerStream(stream);
+				this.registerStream(stream, true);
 			}
 			if(!controlStream.isSettingsReceived() && type != HTTP2Constants.FRAME_TYPE_SETTINGS)
 				throw new HTTP2ConnectionError(HTTP2Constants.STATUS_PROTOCOL_ERROR);
@@ -233,7 +244,8 @@ public abstract class HTTP2Endpoint {
 
 	private void sendConnectionError(int status) {
 		try{
-			this.getControlStream().sendGoaway(this.highestStreamId, status);
+			if(this.connection.isConnected())
+				this.getControlStream().sendGoaway(this.highestStreamId, status);
 		}catch(Exception e){
 			logger.debug(this.connection.getRemoteName(), ": Error while closing connection after connection error: ", HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
 		}finally{
@@ -261,14 +273,32 @@ public abstract class HTTP2Endpoint {
 	/**
 	 * Registers a locally created stream.
 	 * <p>
+	 * Calls <code>{@link #registerStream(HTTP2Stream, boolean) registerStream}(stream, false)</code>.
+	 *
+	 * @param stream The stream
+	 * @see #checkLocalCreateStream()
+	 */
+	protected void registerStream(HTTP2Stream stream){
+		this.registerStream(stream, false);
+	}
+
+	/**
+	 * Registers a new stream.
+	 * <p>
 	 * If applicable, {@link #streamClosed(MessageStream)} must be called with this stream when it closes.
 	 *
 	 * @param stream The stream
+	 * @param initiatedByPeer {@code true} if the given stream was initiated by the peer. Ignored for any stream type other than {@link MessageStream}
+	 * @see #checkLocalCreateStream()
+	 * @see #checkRemoteCreateStream()
 	 */
-	protected void registerStream(HTTP2Stream stream){
+	protected void registerStream(HTTP2Stream stream, boolean initiatedByPeer){
 		this.streams.put(stream.getStreamId(), stream);
-		if(stream instanceof MessageStream)
-			this.openMessageStreamCount++;
+		if(stream instanceof MessageStream && initiatedByPeer){
+			synchronized(this.peerInitiatedStreams){
+				this.peerInitiatedStreams.add((MessageStream) stream);
+			}
+		}
 	}
 
 	/**
@@ -282,8 +312,9 @@ public abstract class HTTP2Endpoint {
 	protected void streamClosed(MessageStream stream){
 		if(!stream.isClosed())
 			throw new IllegalStateException("Stream is not closed");
-		if(this.openMessageStreamCount > 0)
-			this.openMessageStreamCount--;
+		synchronized(this.peerInitiatedStreams){
+			this.peerInitiatedStreams.remove(stream);
+		}
 		synchronized(this.closeWaitStreams){
 			this.closeWaitStreams.add(stream);
 		}
@@ -334,7 +365,27 @@ public abstract class HTTP2Endpoint {
 	 * @since 1.2.4
 	 */
 	public int getOpenMessageStreamCount(){
-		return this.openMessageStreamCount;
+		return this.streams.size() - 1; // - 1 for control stream
+	}
+
+	/**
+	 * Returns the number of open {@link MessageStream}s initiated by the peer.
+	 *
+	 * @return The number of open message streams initiated by the peer
+	 * @since 1.4.1
+	 */
+	public int getOpenPeerInitiatedMessageStreamCount(){
+		return this.peerInitiatedStreams.size();
+	}
+
+	/**
+	 * Returns the number of open {@link MessageStream}s initiated locally.
+	 *
+	 * @return The number of open message streams initiated locally
+	 * @since 1.4.1
+	 */
+	public int getOpenLocallyInitiatedMessageStreamCount(){
+		return this.getOpenMessageStreamCount() - this.getOpenPeerInitiatedMessageStreamCount();
 	}
 
 	/**
@@ -347,8 +398,17 @@ public abstract class HTTP2Endpoint {
 		int maxStreams = this.settings.get(HTTP2Constants.SETTINGS_MAX_CONCURRENT_STREAMS);
 		if((this.streams.size() >> 4) >= maxStreams)
 			throw new HTTP2ConnectionError(HTTP2Constants.STATUS_ENHANCE_YOUR_CALM, "Too many streams");
-		if(this.openMessageStreamCount >= maxStreams)
+		if(this.getOpenPeerInitiatedMessageStreamCount() >= maxStreams)
 			throw new HTTP2ConnectionError(HTTP2Constants.STATUS_REFUSED_STREAM, true, "MAX_CONCURRENT_STREAMS exceeded");
+	}
+
+	/**
+	 * Checks whether a new {@link MessageStream} can be initiated locally according to the remote <i>MAX_CONCURRENT_STREAMS</i> setting.
+	 *
+	 * @return {@code true} if a new local stream can be created
+	 */
+	protected boolean checkLocalCreateStream(){
+		return this.getOpenLocallyInitiatedMessageStreamCount() < this.getControlStream().getRemoteSettings().get(HTTP2Constants.SETTINGS_MAX_CONCURRENT_STREAMS);
 	}
 
 	/**

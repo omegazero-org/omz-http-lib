@@ -59,7 +59,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 	public void start(){
 		super.connection.write(HTTP2Util.getClientPreface());
 		ControlStream cs = new ControlStream(super.connection, super.settings);
-		super.registerStream(cs);
+		super.registerStream(cs, false);
 		cs.setOnSettingsUpdate(this::onSettingsUpdate);
 		cs.setOnWindowUpdate(super::handleConnectionWindowUpdate);
 		cs.writeSettings(super.settings);
@@ -75,32 +75,40 @@ public class HTTP2Client extends HTTP2Endpoint {
 	public MessageStream createRequestStream() {
 		if(this.nextStreamId < 0) // overflow
 			return null;
+		if(!super.checkLocalCreateStream())
+			return null;
 		ControlStream cs = super.getControlStream();
 		MessageStream mstream = new MessageStream(this.nextStreamId, super.connection, cs, super.hpack);
-		super.registerStream(mstream);
+		super.registerStream(mstream, false);
 		this.nextStreamId += 2;
 		return mstream;
 	}
 
 	/**
-	 * Creates a new {@link MessageStream} that expects to receive a promise response by the server. The stream ID of the {@link HTTPRequest} is the promised stream ID by the
-	 * server and must be an even number.
-	 * 
+	 * Creates a new {@link MessageStream} that expects to receive a promise response by the server.
+	 * <p>
+	 * The stream ID of the {@link HTTPRequest} is the promised stream ID by the server and must be an even number.
+	 * <p>
+	 * Usable in the {@code onPushPromise} callback of a {@link MessageStream}.
+	 *
 	 * @param promisedRequest The promise request sent by the server
 	 * @return The created {@code MessageStream}
+	 * @throws IllegalArgumentException If the given request is not a valid pushed request
+	 * @throws HTTP2ConnectionError If <i>MAX_CONCURRENT_STREAMS</i> is exceeded
 	 * @see #onMessageStreamClosed(MessageStream)
 	 */
-	public MessageStream handlePushPromise(HTTPRequest promisedRequest) {
+	public MessageStream handlePushPromise(HTTPRequest promisedRequest) throws HTTP2ConnectionError {
 		if(!promisedRequest.hasAttachment(MessageStream.ATTACHMENT_KEY_STREAM_ID))
 			throw new IllegalArgumentException("promisedRequest is not a HTTP/2 request (missing stream ID attachment)");
 		int pushStreamId = (int) promisedRequest.getAttachment(MessageStream.ATTACHMENT_KEY_STREAM_ID);
 		if((pushStreamId & 1) != 0)
 			throw new IllegalArgumentException("promisedRequest stream ID is not an even number");
+		super.checkRemoteCreateStream();
 		ControlStream cs = super.getControlStream();
 		MessageStream mstream = new MessageStream(pushStreamId, super.connection, cs, super.hpack);
 		mstream.preparePush(true);
 		super.highestStreamId = pushStreamId;
-		super.registerStream(mstream);
+		super.registerStream(mstream, true);
 		return mstream;
 	}
 
@@ -112,7 +120,7 @@ public class HTTP2Client extends HTTP2Endpoint {
 	 * @throws IllegalStateException If the stream is not closed
 	 */
 	public void onMessageStreamClosed(MessageStream messageStream) {
-		super.streamClosed(messageStream);
+		this.streamClosed(messageStream);
 	}
 
 	/**
