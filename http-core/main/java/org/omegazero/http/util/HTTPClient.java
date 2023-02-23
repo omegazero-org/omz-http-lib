@@ -61,6 +61,8 @@ public interface HTTPClient extends java.io.Closeable {
 	 *
 	 * @return The {@code HTTPClientStream}, or {@code null} if no new request can be sent
 	 * @throws IllegalStateException If this {@code HTTPClient} is closed (optional)
+	 * @see #getActiveRequests()
+	 * @see #getMaxConcurrentRequestCount()
 	 */
 	public HTTPClientStream newRequest(HTTPRequest request);
 
@@ -71,4 +73,11 @@ public interface HTTPClient extends java.io.Closeable {
 	 * @return The collection of active {@link HTTPClientStream}s
 	 */
 	public java.util.Collection<HTTPClientStream> getActiveRequests();
+
+	/**
+	 * Returns the maximum number of concurrent active requests this {@code HTTPClient} can be used for.
+	 *
+	 * @return The maximum number of concurrent requests
+	 */
+	public int getMaxConcurrentRequestCount();
 }
