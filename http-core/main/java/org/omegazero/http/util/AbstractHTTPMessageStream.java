@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import org.omegazero.http.common.HTTPRequest;
+import org.omegazero.http.common.MessageStreamClosedException;
 
 /**
  * A {@code HTTPMessageStream} with several basic methods implemented.
@@ -36,11 +37,25 @@ public abstract class AbstractHTTPMessageStream implements HTTPMessageStream {
 
 
 	/**
+	 * Called when a callback handler throws an exception. Calls the {@code onError} callback and closes this stream with reason <i>INTERNAL_ERROR</i>.
+	 *
+	 * @param e The exception thrown by the callback handler
+	 */
+	protected void internalError(Exception e){
+		this.callOnError(e);
+		this.close(MessageStreamClosedException.CloseReason.INTERNAL_ERROR);
+	}
+
+	/**
 	 * Calls the {@code onWritable} callback.
 	 */
 	public void callOnWritable(){
-		if(this.onWritable != null)
-			this.onWritable.run();
+		try{
+			if(this.onWritable != null)
+				this.onWritable.run();
+		}catch(Exception e){
+			this.internalError(e);
+		}
 	}
 
 	/**

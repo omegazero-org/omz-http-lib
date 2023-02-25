@@ -44,8 +44,12 @@ public abstract class AbstractHTTPServerStream extends AbstractHTTPMessageStream
 	 * @param data The object to pass to the callback
 	 */
 	public void callOnRequestData(HTTPRequestData data){
-		if(this.onRequestData != null)
-			this.onRequestData.accept(data);
+		try{
+			if(this.onRequestData != null)
+				this.onRequestData.accept(data);
+		}catch(Exception e){
+			this.internalError(e);
+		}
 	}
 
 	/**
@@ -54,8 +58,12 @@ public abstract class AbstractHTTPServerStream extends AbstractHTTPMessageStream
 	 * @param trailers Optional trailers to pass to the callback
 	 */
 	public void callOnRequestEnded(HTTPMessageTrailers trailers){
-		if(this.onRequestEnded != null)
-			this.onRequestEnded.accept(trailers);
+		try{
+			if(this.onRequestEnded != null)
+				this.onRequestEnded.accept(trailers);
+		}catch(Exception e){
+			this.internalError(e);
+		}
 	}
 
 

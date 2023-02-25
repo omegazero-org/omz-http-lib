@@ -48,8 +48,12 @@ public abstract class AbstractHTTPClientStream extends AbstractHTTPMessageStream
 	 * @param reqstream The pushed response stream
 	 */
 	public void callOnServerPush(HTTPClientStream reqstream){
-		if(this.onServerPush != null)
-			this.onServerPush.accept(reqstream);
+		try{
+			if(this.onServerPush != null)
+				this.onServerPush.accept(reqstream);
+		}catch(Exception e){
+			this.internalError(e);
+		}
 	}
 
 	/**
@@ -60,8 +64,12 @@ public abstract class AbstractHTTPClientStream extends AbstractHTTPMessageStream
 	public void responseReceived(HTTPResponse response){
 		if(!response.isIntermediateMessage())
 			this.response = response;
-		if(this.onResponse != null)
-			this.onResponse.accept(response);
+		try{
+			if(this.onResponse != null)
+				this.onResponse.accept(response);
+		}catch(Exception e){
+			this.internalError(e);
+		}
 	}
 
 	/**
@@ -70,8 +78,12 @@ public abstract class AbstractHTTPClientStream extends AbstractHTTPMessageStream
 	 * @param data The object to pass to the callback
 	 */
 	public void callOnResponseData(HTTPResponseData data){
-		if(this.onResponseData != null)
-			this.onResponseData.accept(data);
+		try{
+			if(this.onResponseData != null)
+				this.onResponseData.accept(data);
+		}catch(Exception e){
+			this.internalError(e);
+		}
 	}
 
 	/**
@@ -80,8 +92,12 @@ public abstract class AbstractHTTPClientStream extends AbstractHTTPMessageStream
 	 * @param trailers Optional trailers to pass to the callback
 	 */
 	public void callOnResponseEnded(HTTPMessageTrailers trailers){
-		if(this.onResponseEnded != null)
-			this.onResponseEnded.accept(trailers);
+		try{
+			if(this.onResponseEnded != null)
+				this.onResponseEnded.accept(trailers);
+		}catch(Exception e){
+			this.internalError(e);
+		}
 		super.closed = true;
 	}
 

@@ -44,7 +44,8 @@ public interface HTTPMessageStream extends java.io.Closeable {
 	public void onWritable(Runnable onWritable);
 
 	/**
-	 * Sets a callback that is called when this {@code HTTPMessageStream} encounters a fatal error. Usually, after this callback is called, this {@code HTTPMessageStream} is closed.
+	 * Sets a callback that is called when this {@code HTTPMessageStream} encounters a fatal error. This includes exceptions thrown by other callback handlers.
+	 * Usually, this {@code HTTPMessageStream} is closed after this callback is called.
 	 *
 	 * @param onError The callback
 	 */
