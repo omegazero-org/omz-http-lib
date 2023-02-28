@@ -23,52 +23,47 @@ steps:
   - curl -G "https://omegazero.org/site/software/r/license_bin_full.php" --data-urlencode "srcurl=$DRONE_REPO_LINK/src/commit/$DRONE_COMMIT" > LICENSE_BIN
 
 - name: build-core
-  image: openjdk:8
+  image: o-jvm-build
+  pull: never
   commands:
-  - mkdir -p build/core/bin/META-INF
-  - cp LICENSE_BIN build/core/bin/META-INF/LICENSE
-  - find http-core/main/java -iname "*.java" > build/core/srcfiles
-  - javac -version -verbose -d build/core/bin @build/core/srcfiles -cp omz-common-latest.jar
-  - jar cf build-core.jar -C build/core/bin .
+  - mkdir -p build/http-core/META-INF
+  - cp LICENSE_BIN build/http-core/META-INF/LICENSE
+  - make core BINDIR=build
   depends_on:
   - prepare-dependencies
   - prepare-source
 
 - name: build-net
-  image: openjdk:8
+  image: o-jvm-build
+  pull: never
   commands:
-  - mkdir -p build/net/bin/META-INF
-  - cp LICENSE_BIN build/net/bin/META-INF/LICENSE
-  - find http-net/main/java -iname "*.java" > build/net/srcfiles
-  - javac -version -verbose -d build/net/bin @build/net/srcfiles -cp build-core.jar:omz-netlib-common-latest.jar
-  - jar cf build-net.jar -C build/net/bin .
+  - mkdir -p build/http-net/META-INF
+  - cp LICENSE_BIN build/http-net/META-INF/LICENSE
+  - make net BINDIR=build
   depends_on:
   - prepare-dependencies
   - prepare-source
   - build-core
 
 - name: build-http1
-  image: openjdk:8
+  image: o-jvm-build
+  pull: never
   commands:
-  - mkdir -p build/http1/bin/META-INF
-  - cp LICENSE_BIN build/http1/bin/META-INF/LICENSE
-  - find http1/main/java -iname "*.java" > build/http1/srcfiles
-  - javac -version -verbose -d build/http1/bin @build/http1/srcfiles -cp build-core.jar:omz-common-latest.jar
-  - jar cf build-http1.jar -C build/http1/bin .
+  - mkdir -p build/http1/META-INF
+  - cp LICENSE_BIN build/http1/META-INF/LICENSE
+  - make http1 BINDIR=build
   depends_on:
   - prepare-dependencies
   - prepare-source
   - build-core
 
 - name: build-http2
-  image: openjdk:8
+  image: o-jvm-build
+  pull: never
   commands:
-  - mkdir -p build/http2/bin/META-INF
-  - cp LICENSE_BIN build/http2/bin/META-INF/LICENSE
-  - find http2/main/java -iname "*.java" > build/http2/srcfiles
-  - javac -version -verbose -d build/http2/bin @build/http2/srcfiles -cp build-core.jar:omz-common-latest.jar
-  - cp -r http2/main/resources/* build/http2/bin/
-  - jar cf build-http2.jar -C build/http2/bin .
+  - mkdir -p build/http2/META-INF
+  - cp LICENSE_BIN build/http2/META-INF/LICENSE
+  - make http2 BINDIR=build
   depends_on:
   - prepare-dependencies
   - prepare-source
@@ -77,10 +72,10 @@ steps:
 - name: build-all
   image: openjdk:8
   commands:
-  - mkdir -p build/all/bin/META-INF
-  - cp -r build/core/bin/* build/net/bin/* build/http1/bin/* build/http2/bin/* build/all/bin
-  - cp LICENSE_BIN build/all/bin/META-INF/LICENSE
-  - jar cf build-all.jar -C build/all/bin .
+  - mkdir -p build/all/META-INF
+  - cp -r build/http-core/* build/http-net/* build/http1/* build/http2/* build/all
+  - cp LICENSE_BIN build/all/META-INF/LICENSE
+  - jar cf build-all.jar -C build/all .
   depends_on:
   - build-core
   - build-net
@@ -92,10 +87,10 @@ steps:
   pull: never
   commands:
   - artifact-push-java build-all.jar omz/org.omegazero.http:omz-http
-  - artifact-push-java build-core.jar omz/org.omegazero.http:omz-http-core
-  - artifact-push-java build-net.jar omz/org.omegazero.http:omz-http-net
-  - artifact-push-java build-http1.jar omz/org.omegazero.http:omz-http-http1
-  - artifact-push-java build-http2.jar omz/org.omegazero.http:omz-http-http2
+  - artifact-push-java build/http-core.jar omz/org.omegazero.http:omz-http-core
+  - artifact-push-java build/http-net.jar omz/org.omegazero.http:omz-http-net
+  - artifact-push-java build/http1.jar omz/org.omegazero.http:omz-http-http1
+  - artifact-push-java build/http2.jar omz/org.omegazero.http:omz-http-http2
   depends_on:
   - build-all
   environment:
