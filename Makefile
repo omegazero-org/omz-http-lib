@@ -51,5 +51,5 @@ $(BINDIR)/http1.jar: $(BINDIR)/http-core.jar $(call rwildcard,http1/main/java,*.
 
 $(BINDIR)/http2.jar: $(BINDIR)/http-core.jar $(call rwildcard,http2/main/java,*.java)
 	$(call pre_build,http2)
-	javac $(JAVAC_FLAGS) -d $(BINDIR)/http1 -cp "$(JAVA_CP)$(JAVA_PATH_SEPARATOR)$(BINDIR)/http-core.jar" $(filter %.java,$^)
+	javac $(JAVAC_FLAGS) -d $(BINDIR)/http2 -cp "$(JAVA_CP)$(JAVA_PATH_SEPARATOR)$(BINDIR)/http-core.jar" $(filter %.java,$^)
 	$(call post_build,http2)
