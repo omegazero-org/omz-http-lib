@@ -190,7 +190,7 @@ public class MessageBodyDechunker {
 			this.chunkBufferIndex += write;
 			if(this.chunkBufferIndex >= this.chunkBuffer.length){
 				this.chunkBufferIndex = 0;
-				this.newData(this.chunkBuffer);
+				this.newData(Arrays.copyOf(this.chunkBuffer, this.chunkBuffer.length));
 			}
 			written += write;
 			srcIndex += write;
