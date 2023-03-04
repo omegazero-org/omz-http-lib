@@ -70,6 +70,7 @@ public class MessageStream extends HTTP2Stream {
 	private boolean headersEndStream = false;
 	private ByteArrayOutputStream headersBuf = new ByteArrayOutputStream();
 	private int promisedStreamId = -1;
+	private boolean earlyResponseHeaders = false;
 
 	private HTTPMessage receivedMessage;
 	private SpecificThrowingConsumer<HTTP2ConnectionError, HTTPRequest> onPushPromise;
@@ -129,7 +130,10 @@ public class MessageStream extends HTTP2Stream {
 	 * @see #preparePush(boolean)
 	 */
 	public synchronized void sendPushPromise(int promisedStreamId, HTTPRequest request){
-		if(this.state != STATE_HALF_CLOSED)
+		if(this.state == STATE_OPEN){
+			this.state = STATE_HALF_CLOSED;
+			this.earlyResponseHeaders = true;
+		}else if(this.state != STATE_HALF_CLOSED)
 			throw new IllegalStateException("Stream is not expecting a push promise");
 
 		this.writeMessage(FRAME_TYPE_PUSH_PROMISE, FrameUtil.int32BE(promisedStreamId), request, false);
@@ -144,9 +148,12 @@ public class MessageStream extends HTTP2Stream {
 	 * @throws IllegalStateException If this stream is not in {@code STATE_IDLE} (request) or {@code STATE_HALF_CLOSED} (response)
 	 */
 	public synchronized void sendHTTPMessage(HTTPMessage message, boolean endStream){
-		if(this.state == STATE_IDLE)
+		if(this.state == STATE_IDLE){
 			this.state = STATE_OPEN;
-		else if(this.state != STATE_HALF_CLOSED)
+		}else if(this.state == STATE_OPEN){
+			this.state = STATE_HALF_CLOSED;
+			this.earlyResponseHeaders = true;
+		}else if(this.state != STATE_HALF_CLOSED)
 			throw new IllegalStateException("Stream is not expecting a HTTP message");
 
 		this.writeMessage(FRAME_TYPE_HEADERS, null, message, endStream);
@@ -229,7 +236,8 @@ public class MessageStream extends HTTP2Stream {
 	 * @throws IllegalStateException If the stream is not in {@code STATE_OPEN} (request) or {@code STATE_HALF_CLOSED} (response)
 	 */
 	public synchronized boolean sendData(byte[] data, boolean endStream){
-		if(this.state != STATE_OPEN && this.state != STATE_HALF_CLOSED)
+		if(this.state != STATE_OPEN && this.state != STATE_HALF_CLOSED
+				&& !(this.earlyResponseHeaders && (this.state == STATE_HALF_CLOSED_LOCAL || this.state == STATE_RESERVED || this.state == STATE_CLOSED)))
 			throw new IllegalStateException("Stream is not expecting data");
 
 		boolean flushed = false;
@@ -292,7 +300,7 @@ public class MessageStream extends HTTP2Stream {
 
 	@Override
 	public synchronized void receiveFrame(int type, int flags, byte[] data) throws HTTP2ConnectionError {
-		if(type != FRAME_TYPE_PRIORITY && this.isClosed() && !this.isCloseOutgoing())
+		if(!(type == FRAME_TYPE_PRIORITY || type == FRAME_TYPE_RST_STREAM) && this.isClosed() && !this.isCloseOutgoing())
 			throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true);
 		if(HTTP2Stream.isFlowControlledFrameType(type)){
 			synchronized(this.windowSizeLock){
@@ -308,14 +316,17 @@ public class MessageStream extends HTTP2Stream {
 				throw new HTTP2ConnectionError(STATUS_FRAME_SIZE_ERROR, true);
 			// currently unsupported
 		}else if(type == FRAME_TYPE_HEADERS){
-			if(this.state == STATE_IDLE) // incoming request (c->s)
+			if(this.state == STATE_IDLE){ // incoming request (c->s)
 				this.state = STATE_OPEN;
-			else if(this.state == STATE_RESERVED) // incoming response after push promise (s->c)
+			}else if(this.state == STATE_RESERVED){ // incoming response after push promise (s->c)
 				this.state = STATE_HALF_CLOSED_LOCAL;
-			else if(this.isClosed())
+			}else if(this.state == STATE_OPEN){ // incoming EARLY response (response before client sent ES) (s->c)
+				this.state = STATE_HALF_CLOSED_LOCAL;
+				this.earlyResponseHeaders = true;
+			}else if(this.isClosed()){
 				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, this.isCloseOutgoing());
-			else if(this.state != STATE_HALF_CLOSED_LOCAL && this.state != STATE_OPEN) // incoming response (s->c) or incoming request trailers (c->s)
-				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true);
+			}else if(this.state != STATE_HALF_CLOSED_LOCAL && this.state != STATE_OPEN) // incoming response (s->c) or incoming request trailers (c->s)
+				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true, "HEADERS in invalid state: " + this.state);
 			if(data.length < 1)
 				throw new HTTP2ConnectionError(STATUS_FRAME_SIZE_ERROR);
 			int index = 0;
@@ -341,7 +352,10 @@ public class MessageStream extends HTTP2Stream {
 		}else if(type == FRAME_TYPE_PUSH_PROMISE){
 			if(this.localSettings.get(SETTINGS_ENABLE_PUSH) == 0)
 				throw new HTTP2ConnectionError(STATUS_PROTOCOL_ERROR, "PUSH is not enabled");
-			if(this.state == STATE_HALF_CLOSED_LOCAL)
+			if(this.state == STATE_OPEN){ // incoming EARLY push promise (before client sent ES) (s->c)
+				this.state = STATE_RESERVED;
+				this.earlyResponseHeaders = true;
+			}else if(this.state == STATE_HALF_CLOSED_LOCAL)
 				this.state = STATE_RESERVED;
 			else if(this.isClosed() && this.closeOutgoing)
 				throw new HTTP2ConnectionError(STATUS_CANCEL, true);
@@ -382,7 +396,7 @@ public class MessageStream extends HTTP2Stream {
 				this.headersReceiving = false;
 			}
 		}else if(type == FRAME_TYPE_DATA){
-			if(this.state != STATE_HALF_CLOSED_LOCAL && this.state != STATE_OPEN)
+			if(this.state != STATE_HALF_CLOSED_LOCAL && this.state != STATE_OPEN && !(this.earlyResponseHeaders && (this.state == STATE_HALF_CLOSED || this.state == STATE_CLOSED)))
 				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true);
 			int index = 0;
 			int padding = 0;
@@ -465,6 +479,8 @@ public class MessageStream extends HTTP2Stream {
 	}
 
 	private void receiveData(byte[] data, boolean endStream) throws HTTP2ConnectionError {
+		if(this.receivedMessage == null)
+			throw new HTTP2ConnectionError(STATUS_PROTOCOL_ERROR, true, "Received DATA but no HTTPMessage");
 		if(endStream)
 			this.recvESnc();
 		if(this.onData != null)
@@ -479,7 +495,7 @@ public class MessageStream extends HTTP2Stream {
 		else if(this.receivedMessage instanceof HTTPResponse)
 			return new org.omegazero.http.common.HTTPResponseData((HTTPResponse) this.receivedMessage, endStream, data);
 		else
-			throw new AssertionError("HTTPMessage type: " + this.receivedMessage.getClass().getName());
+			throw new AssertionError("HTTPMessage type: " + (this.receivedMessage != null ? this.receivedMessage.getClass().getName() : "null"));
 	}
 
 
@@ -534,6 +550,8 @@ public class MessageStream extends HTTP2Stream {
 
 
 	private synchronized void recvESnc() {
+		if(this.earlyResponseHeaders) // state updates already done
+			return;
 		if(this.state == STATE_OPEN)
 			this.state = STATE_HALF_CLOSED;
 		else if(this.state != STATE_HALF_CLOSED_LOCAL)
@@ -541,6 +559,8 @@ public class MessageStream extends HTTP2Stream {
 	}
 
 	private synchronized void sentES() {
+		if(this.earlyResponseHeaders)
+			return;
 		if(this.state == STATE_OPEN)
 			this.state = STATE_HALF_CLOSED_LOCAL;
 		else if(this.state == STATE_HALF_CLOSED)
