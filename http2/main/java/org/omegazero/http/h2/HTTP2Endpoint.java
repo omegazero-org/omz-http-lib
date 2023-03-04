@@ -246,9 +246,13 @@ public abstract class HTTP2Endpoint {
 		try{
 			if(this.connection.isConnected())
 				this.getControlStream().sendGoaway(this.highestStreamId, status);
+			this.connection.close();
+			for(HTTP2Stream s : this.getStreams()){
+				if(s instanceof MessageStream)
+					((MessageStream) s).rst(status);
+			}
 		}catch(Exception e){
 			logger.debug(this.connection.getRemoteName(), ": Error while closing connection after connection error: ", HTTP2Util.PRINT_STACK_TRACES ? e : e.toString());
-		}finally{
 			this.connection.close();
 		}
 	}
