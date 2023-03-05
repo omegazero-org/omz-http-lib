@@ -323,10 +323,10 @@ public class MessageStream extends HTTP2Stream {
 			}else if(this.state == STATE_OPEN){ // incoming EARLY response (response before client sent ES) (s->c)
 				this.state = STATE_HALF_CLOSED_LOCAL;
 				this.earlyResponseHeaders = true;
-			}else if(this.isClosed()){
-				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, this.isCloseOutgoing());
-			}else if(this.state != STATE_HALF_CLOSED_LOCAL && this.state != STATE_OPEN) // incoming response (s->c) or incoming request trailers (c->s)
-				throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true, "HEADERS in invalid state: " + this.state);
+			}else if(this.state != STATE_HALF_CLOSED_LOCAL && this.state != STATE_OPEN && !this.isClosed()){
+				// incoming response (s->c) or incoming request trailers (c->s) or closed (see comment in receiveHeaderBlock)
+				throw new HTTP2ConnectionError(STATUS_PROTOCOL_ERROR, true, "HEADERS in invalid state: " + this.state);
+			}
 			if(data.length < 1)
 				throw new HTTP2ConnectionError(STATUS_FRAME_SIZE_ERROR);
 			int index = 0;
@@ -420,13 +420,16 @@ public class MessageStream extends HTTP2Stream {
 	}
 
 	private void receiveHeaderBlock(byte[] data, boolean endStream) throws HTTP2ConnectionError {
+		assert this.state == STATE_OPEN || this.state == STATE_HALF_CLOSED_LOCAL || this.state == STATE_RESERVED || this.isClosed() && this.isCloseOutgoing() : "Invalid state in receiveHeaderBlock";
 		boolean pushPromise = this.state == STATE_RESERVED;
 		boolean request = this.state == STATE_OPEN || pushPromise;
-		if(endStream)
-			this.recvESnc();
 		HTTPHeaderContainer headers = this.hpack.decodeHeaderBlock(data);
 		if(headers == null)
 			throw new HTTP2ConnectionError(STATUS_COMPRESSION_ERROR);
+		if(this.isClosed()) // receive all HEADERS frames on closed (outgoing close) streams to make sure HPACK table state is consistent
+			throw new HTTP2ConnectionError(STATUS_STREAM_CLOSED, true);
+		if(endStream)
+			this.recvESnc();
 		if(this.receivedMessage == null){
 			int streamId;
 			if(!pushPromise)
