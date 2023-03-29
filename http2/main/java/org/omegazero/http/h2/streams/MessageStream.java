@@ -463,6 +463,11 @@ public class MessageStream extends HTTP2Stream {
 				if(this.onMessage == null)
 					throw new IllegalStateException("onMessage is null");
 				this.onMessage.accept(this.getHMDFromReceivedMessage(endStream, null));
+				if(this.receivedMessage instanceof HTTPResponse && ((HTTPResponse) msg).isIntermediateMessage()){
+					if(((HTTPResponse) msg).getStatus() == 101)
+						throw new HTTP2ConnectionError(STATUS_PROTOCOL_ERROR, true, "HTTP 101 Switching Protocols is not supported in HTTP/2"); // RFC 9113, 8.6
+					this.receivedMessage = null;
+				}
 			}else if(this.onPushPromise != null){
 				this.onPushPromise.accept((HTTPRequest) msg);
 			}else{ // reset promised stream because there is no handler
