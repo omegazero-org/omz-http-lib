@@ -172,7 +172,7 @@ public class MessageBodyDechunker {
 				}
 			}
 		}else{
-			if(data.length > this.totalSize - this.receivedData)
+			if(this.totalSize >= 0 && data.length > this.totalSize - this.receivedData)
 				throw new InvalidHTTPMessageException("Received more data than expected");
 			this.receivedData += data.length;
 			if(data.length > 0)
