@@ -45,6 +45,7 @@ public class MessageBodyDechunker {
 	private boolean ended = false;
 	private int lastChunkRemaining = 0;
 	private int lastChunkSize = 0;
+	private byte[] partialChunkHeader;
 
 	/**
 	 * Creates a new {@link MessageBodyDechunker} with a default buffer size of 16KiB.
@@ -116,9 +117,21 @@ public class MessageBodyDechunker {
 			int index = 0;
 			while(index < data.length){
 				if(this.lastChunkRemaining == 0){
-					int chunkHeaderEnd = ArrayUtil.indexOf(data, EOL, index);
-					if(chunkHeaderEnd < 0)
-						throw new InvalidHTTPMessageException("No chunk size in chunked response");
+					boolean splitLineEnd = false;
+					int chunkHeaderEnd;
+					if(this.partialChunkHeader != null && this.partialChunkHeader[this.partialChunkHeader.length - 1] == '\r'){
+						chunkHeaderEnd = 0;
+						splitLineEnd = true;
+					}else
+						chunkHeaderEnd = ArrayUtil.indexOf(data, EOL, index);
+					if(chunkHeaderEnd < 0){
+						if(data.length - index < 10){
+							this.partialChunkHeader = Arrays.copyOfRange(data, index, data.length);
+							index = data.length;
+							continue;
+						}else
+							throw new InvalidHTTPMessageException("No chunk size in chunked response");
+					}
 					int chunkLen;
 					try{
 						int lenEnd = chunkHeaderEnd;
@@ -128,13 +141,19 @@ public class MessageBodyDechunker {
 								break;
 							}
 						}
-						chunkLen = Integer.parseInt(new String(data, index, lenEnd - index), 16);
+						String chunkLenStr = new String(data, index, lenEnd - index);
+						if(this.partialChunkHeader != null)
+							chunkLenStr = new String(this.partialChunkHeader, 0, this.partialChunkHeader.length - (splitLineEnd ? 1 : 0)) + chunkLenStr;
+						this.partialChunkHeader = null;
+						chunkLen = Integer.parseInt(chunkLenStr, 16);
 						if(chunkLen < 0)
 							throw new InvalidHTTPMessageException("Chunk size is negative");
 					}catch(NumberFormatException e){
 						throw new InvalidHTTPMessageException("Invalid chunk size", e);
 					}
 					chunkHeaderEnd += EOL.length;
+					if(splitLineEnd)
+						chunkHeaderEnd--;
 					int datasize = data.length - chunkHeaderEnd;
 					if(datasize >= chunkLen + EOL.length){
 						if(chunkLen > 0){
