@@ -1,0 +1,54 @@
+
+name: ci
+on: [push]
+
+jobs:
+  autobuild:
+    runs-on: ubuntu-latest
+    container:
+      image: sw-vc.warpcs.org/omegazero/java-build
+    steps:
+      - uses: actions/checkout@v5
+      - name: prepare
+        run: |
+          artifact-dl-java mvncentral/org.json:json:20211205
+          artifact-dl-java omz/org.omegazero.common:omz-common:latest
+          artifact-dl-java omz/org.omegazero.net:omz-netlib-common:latest
+          mkdir build
+          setversion http-core/main/java/org/omegazero/http/HTTPLib.java
+          curl -G "https://warpcs.org/site/software/r/license_bin_full.php" --data-urlencode "srcurl=${{ gitea.server_url }}/${{ gitea.repository }}/src/commit/${{ gitea.sha }}" > LICENSE_BIN
+      - name: build-core
+        run: |
+          mkdir -p build/http-core/META-INF
+          cp LICENSE_BIN build/http-core/META-INF/LICENSE
+          make core BINDIR=build
+      - name: build-net
+        run: |
+          mkdir -p build/http-net/META-INF
+          cp LICENSE_BIN build/http-net/META-INF/LICENSE
+          make net BINDIR=build
+      - name: build-http1
+        run: |
+          mkdir -p build/http1/META-INF
+          cp LICENSE_BIN build/http1/META-INF/LICENSE
+          make http1 BINDIR=build
+      - name: build-http2
+        run: |
+          mkdir -p build/http2/META-INF
+          cp LICENSE_BIN build/http2/META-INF/LICENSE
+          make http2 BINDIR=build
+      - name: build-all
+        run: |
+          mkdir -p build/all/META-INF
+          cp -r build/http-core/* build/http-net/* build/http1/* build/http2/* build/all
+          cp LICENSE_BIN build/all/META-INF/LICENSE
+          jar cf build-all.jar -C build/all .
+      - name: publish
+        run: |
+          artifact-push-java build-all.jar omz/org.omegazero.http:omz-http
+          artifact-push-java build/http-core.jar omz/org.omegazero.http:omz-http-core
+          artifact-push-java build/http-net.jar omz/org.omegazero.http:omz-http-net
+          artifact-push-java build/http1.jar omz/org.omegazero.http:omz-http-http1
+          artifact-push-java build/http2.jar omz/org.omegazero.http:omz-http-http2
+    env:
+      OMZ_ARTIFACT_PUSH_TOKEN: ${{ secrets.ARTIFACT_PUSH_TOKEN }}
